@@ -82,6 +82,26 @@ function createCard() {
   card.hass = {
     states: {
       "sensor.health_overview": { state: "attention", attributes },
+      "sensor.unavailable_details": {
+        state: "available",
+        attributes: { persistent_unavailable_entity_ids: ["sensor.split-source"] },
+      },
+      "sensor.unknown_details": {
+        state: "available",
+        attributes: { classification_review_due_entities: [{ entity_id: "sensor.split-review", reason: "Review from detail sensor" }] },
+      },
+      "sensor.integration_details": {
+        state: "available",
+        attributes: { integration_inventory: { attention_domain_count: 1, attention_domains: ["split_domain"] } },
+      },
+      "sensor.investigation_details": {
+        state: "available",
+        attributes: { unavailable_investigations: [{ title: "Split investigation", status: "waiting" }] },
+      },
+      "sensor.diagnostic_details": {
+        state: "available",
+        attributes: { platform_updates: { core: { state: "off" } } },
+      },
       "sensor.unavailable_entity_history_events": {
         state: "2",
         attributes: {
@@ -141,4 +161,15 @@ test("shows missing metric values as a dash rather than zero", () => {
   assert.equal(card._number(null), "—");
   assert.equal(card._number(""), "—");
   assert.equal(card._number("96%"), "96%");
+});
+
+
+test("merges focused detail sensors into the six card views", () => {
+  const card = createCard();
+  const attrs = card._attributes();
+  assert.deepEqual(attrs.persistent_unavailable_entity_ids, ["sensor.split-source"]);
+  assert.equal(attrs.classification_review_due_entities[0].entity_id, "sensor.split-review");
+  assert.equal(attrs.integration_inventory.attention_domains[0], "split_domain");
+  assert.equal(attrs.unavailable_investigations[0].title, "Split investigation");
+  assert.equal(attrs.platform_updates.core.state, "off");
 });
