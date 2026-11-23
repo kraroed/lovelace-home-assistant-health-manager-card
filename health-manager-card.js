@@ -43,8 +43,9 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
   }
 
   _number(value) {
+    if (value === null || value === undefined || value === "") return "—";
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed.toLocaleString() : "—";
+    return Number.isFinite(parsed) ? parsed.toLocaleString() : this._esc(value);
   }
 
   _date(value) {
