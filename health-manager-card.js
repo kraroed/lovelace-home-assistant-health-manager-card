@@ -97,7 +97,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
   }
 
   _overview(a, state) {
-    const updates = a.platform_updates || {};
+    const updates = a.platform_updates || a.platform_update_states || {};
     const status = String(state.state || "unknown").replaceAll("_", " ");
     const coverage = a.collection_coverage?.coverage_percent;
     const coverageText = coverage == null ? "—" : `${coverage}%`;
