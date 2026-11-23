@@ -1,6 +1,6 @@
 /* Home Assistant Health Manager Lovelace card */
 const CARD_VERSION = "0.1.0-beta.1";
-const DEFAULT_ENTITY = "sensor.home_assistant_health_manager_health_overview";
+const DEFAULT_ENTITY = "sensor.health_overview";
 
 class HomeAssistantHealthManagerCard extends HTMLElement {
   constructor() {
@@ -11,12 +11,13 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config || !config.entity) {
-      throw new Error("Please define the Home Assistant Health Manager overview entity.");
+    if (!config) {
+      throw new Error("Card configuration is required.");
     }
     this._config = {
       title: "Home Assistant Health",
       entity: DEFAULT_ENTITY,
+      history_entity: "sensor.unavailable_entity_history_events",
       ...config,
     };
     this._render();
