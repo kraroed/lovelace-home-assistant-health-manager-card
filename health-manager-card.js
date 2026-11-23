@@ -36,6 +36,22 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     return this._hass?.states?.[this._config?.entity] || null;
   }
 
+  _attributes() {
+    const attributes = { ...(this._state()?.attributes || {}) };
+    const detailEntities = this._config?.detail_entities || [
+      "sensor.unavailable_details",
+      "sensor.unknown_details",
+      "sensor.integration_details",
+      "sensor.investigation_details",
+      "sensor.diagnostic_details",
+    ];
+    for (const entityId of detailEntities) {
+      const detail = this._hass?.states?.[entityId]?.attributes;
+      if (detail && typeof detail === "object") Object.assign(attributes, detail);
+    }
+    return attributes;
+  }
+
   _esc(value) {
     return String(value ?? "").replace(/[&<>"']/g, (char) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -206,7 +222,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
   _render() {
     if (!this.shadowRoot || !this._config) return;
     const state = this._state();
-    const attrs = state?.attributes || {};
+    const attrs = this._attributes();
     const body = !this._hass
       ? '<p class="muted">Waiting for Home Assistant…</p>'
       : !state
