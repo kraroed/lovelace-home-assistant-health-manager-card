@@ -72,9 +72,14 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         Number(left[1].attributes.page || 0) - Number(right[1].attributes.page || 0)
       );
 
+    const pagedCollections = new Set();
     for (const [, state] of pageEntities) {
       const page = state.attributes;
       const key = page.collection_key;
+      if (!pagedCollections.has(key)) {
+        attributes[key] = page.record_kind === "mapping" ? {} : [];
+        pagedCollections.add(key);
+      }
       if (page.record_kind === "mapping") {
         const merged = { ...(attributes[key] || {}) };
         for (const record of page.records) {
