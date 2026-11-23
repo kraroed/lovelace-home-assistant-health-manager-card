@@ -110,7 +110,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         <div class="entity-list">${(group.entity_ids || []).map(id => `<code>${this._esc(id)}</code>`).join("")}</div>
         ${group.evidence?.length ? `<details><summary>Association evidence</summary><ul>${group.evidence.map(e => `<li>${this._esc(typeof e === "string" ? e : JSON.stringify(e))}</li>`).join("")}</ul></details>` : ""}
         <p class="muted">Association evidence only; root cause is not confirmed.</p>
-      </article>`).replace("</div>", "</div>");
+      </article>`);
     return `
       <div class="metrics">
         ${this._metric("Currently unavailable", a.unavailable_entity_count)}
