@@ -41,17 +41,15 @@ title: Home Assistant Health
 
 If your Health Overview entity has a different entity ID, use the exact ID shown under **Settings → Devices & services → Entities**.
 
-### Optional history sensor
+### History sensor
 
-The Health Overview sensor provides the event count, while the individual Unavailable Entity History Events sensor provides the retained event records. To populate the History view with those records, add its exact entity ID:
+The card uses `sensor.unavailable_entity_history_events` by default to display retained availability events. If you renamed that entity, override it with the exact entity ID from your installation:
 
 ```yaml
 type: custom:home-assistant-health-manager-card
 entity: sensor.health_overview
-history_entity: sensor.unavailable_entity_history_events
+history_entity: sensor.your_unavailable_entity_history_events
 ```
-
-Entity IDs can vary if they were renamed or customized. Use the entity ID shown in your installation.
 
 ## Notes
 
