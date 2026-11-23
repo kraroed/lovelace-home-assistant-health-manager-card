@@ -190,11 +190,15 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
   }
 
   _history(a) {
-    const events = a.availability_observation_events || [];
-    return this._section("Recent availability history", this._list(events.slice().reverse(), event => {
+    const historyState = this._config.history_entity ? this._hass?.states?.[this._config.history_entity] : null;
+    const events = historyState?.attributes?.events || a.availability_observation_events || [];
+    const eventCount = historyState?.state ?? a.availability_observation_event_count;
+    const content = this._list(events.slice().reverse(), event => {
       const ids = event.entity_ids || (event.entity_id ? [event.entity_id] : []);
       return `<article class="record"><div class="record-heading"><strong>${this._esc(String(event.action || event.event_type || "Event").replaceAll("_", " "))}</strong><span class="muted">${this._date(event.occurred_at || event.timestamp)}</span></div><div class="entity-list">${ids.map(id => `<code>${this._esc(id)}</code>`).join("")}</div>${event.note ? `<p>${this._esc(event.note)}</p>` : ""}</article>`;
-    }), a.note || "The integration retains a bounded local event history; a missing entity is not automatically treated as recovered.");
+    });
+    return `<div class="muted">Retained events: ${this._number(eventCount)}</div>` +
+      this._section("Recent availability history", content, historyState ? "A missing entity is not automatically treated as recovered." : "To show event details, set history_entity to the Unavailable Entity History Events sensor. A missing entity is not automatically treated as recovered.");
   }
 
   _render() {
