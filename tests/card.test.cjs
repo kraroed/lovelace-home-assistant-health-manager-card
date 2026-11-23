@@ -173,3 +173,19 @@ test("merges focused detail sensors into the six card views", () => {
   assert.equal(attrs.unavailable_investigations[0].title, "Split investigation");
   assert.equal(attrs.platform_updates.core.state, "off");
 });
+
+
+test("shows a visible warning and report reference for Recorder-overflow details", () => {
+  const card = createCard();
+  card.hass.states["sensor.diagnostic_details"].attributes = {
+    recorder_attribute_overflow: true,
+    overflowed_entity_key: "diagnostic_details",
+    original_attribute_bytes: 24000,
+    details_preserved_in_report: true,
+    full_details_report: "/config/www/health_report.zip",
+  };
+  card._render();
+  assert.ok(card.shadowRoot.innerHTML.includes("exceeded Home Assistant Recorder"));
+  assert.ok(card.shadowRoot.innerHTML.includes("/config/www/health_report.zip"));
+  assert.ok(card.shadowRoot.innerHTML.includes("diagnostic_details"));
+});
