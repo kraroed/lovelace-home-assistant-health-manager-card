@@ -1,0 +1,24 @@
+name: Validate card
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check JavaScript syntax
+        run: node --check health-manager-card.js
+      - name: Validate HACS metadata JSON
+        run: python -m json.tool hacs.json > /dev/null
+      - name: Validate HACS plugin
+        uses: hacs/action@main
+        with:
+          category: plugin
