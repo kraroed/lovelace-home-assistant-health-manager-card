@@ -33,7 +33,7 @@ Add a Manual card to your dashboard:
 
 ```yaml
 type: custom:home-assistant-health-manager-card
-entity: sensor.home_assistant_health_manager_health_overview
+entity: sensor.health_overview
 title: Home Assistant Health
 ```
 
@@ -45,8 +45,8 @@ The Health Overview sensor provides the event count, while the individual Unavai
 
 ```yaml
 type: custom:home-assistant-health-manager-card
-entity: sensor.home_assistant_health_manager_health_overview
-history_entity: sensor.home_assistant_health_manager_availability_observation_event_count
+entity: sensor.health_overview
+history_entity: sensor.unavailable_entity_history_events
 ```
 
 Entity IDs can vary if they were renamed or customized. Use the entity ID shown in your installation.
