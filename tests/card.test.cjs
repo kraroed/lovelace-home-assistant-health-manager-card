@@ -88,7 +88,7 @@ function createCard() {
       },
       "sensor.unknown_details": {
         state: "available",
-        attributes: { classification_review_due_entities: [{ entity_id: "sensor.split-review", reason: "Review from detail sensor" }] },
+        attributes: { classification_review_due_entities: [{ entity_id: "sensor.split-review", reason: "Review from detail sensor" }, { entity_id: "sensor.review", classification: "expected", reason: "<script>alert(1)</script>" }] },
       },
       "sensor.integration_details": {
         state: "available",
