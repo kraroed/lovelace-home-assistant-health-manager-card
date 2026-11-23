@@ -189,3 +189,44 @@ test("shows a visible warning and report reference for Recorder-overflow details
   assert.ok(card.shadowRoot.innerHTML.includes("/config/www/health_report.zip"));
   assert.ok(card.shadowRoot.innerHTML.includes("diagnostic_details"));
 });
+
+
+test("reconstructs full detail collections from multiple size-aware page sensors", () => {
+  const card = createCard();
+  card._hass.states["sensor.detail_page_persistent_unavailable_entity_ids_1"] = {
+    state: "2",
+    attributes: {
+      collection_key: "persistent_unavailable_entity_ids",
+      record_kind: "list",
+      page: 1,
+      page_count: 2,
+      records: ["sensor.page_one", "sensor.page_two"],
+    },
+  };
+  card._hass.states["sensor.detail_page_persistent_unavailable_entity_ids_2"] = {
+    state: "1",
+    attributes: {
+      collection_key: "persistent_unavailable_entity_ids",
+      record_kind: "list",
+      page: 2,
+      page_count: 2,
+      records: ["sensor.page_three"],
+    },
+  };
+  card._hass.states["sensor.detail_page_unknown_counts_by_domain_1"] = {
+    state: "2",
+    attributes: {
+      collection_key: "unknown_counts_by_domain",
+      record_kind: "mapping",
+      page: 1,
+      page_count: 1,
+      records: [{ key: "sensor", value: 8 }, { key: "switch", value: 4 }],
+    },
+  };
+  const attrs = card._attributes();
+  assert.deepEqual(attrs.persistent_unavailable_entity_ids, [
+    "sensor.page_one", "sensor.page_two", "sensor.page_three",
+  ]);
+  assert.deepEqual(attrs.unknown_counts_by_domain, { sensor: 8, switch: 4 });
+  assert.equal(attrs.recorder_detail_page_count, 3);
+});
