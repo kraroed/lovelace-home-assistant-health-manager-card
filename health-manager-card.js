@@ -45,10 +45,23 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       "sensor.investigation_details",
       "sensor.diagnostic_details",
     ];
+    const overflowEntities = [];
     for (const entityId of detailEntities) {
       const detail = this._hass?.states?.[entityId]?.attributes;
-      if (detail && typeof detail === "object") Object.assign(attributes, detail);
+      if (detail && typeof detail === "object") {
+        if (detail.recorder_attribute_overflow) {
+          overflowEntities.push({
+            entityId,
+            entityKey: detail.overflowed_entity_key || entityId,
+            report: detail.full_details_report || null,
+            preserved: detail.details_preserved_in_report === true,
+            bytes: detail.original_attribute_bytes,
+          });
+        }
+        Object.assign(attributes, detail);
+      }
     }
+    attributes.recorder_attribute_overflow_entities = overflowEntities;
     return attributes;
   }
 
@@ -223,6 +236,17 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     if (!this.shadowRoot || !this._config) return;
     const state = this._state();
     const attrs = this._attributes();
+    const overflow = attrs.recorder_attribute_overflow_entities || [];
+    const overflowNotice = overflow.length
+      ? '<ha-alert alert-type="warning">' +
+        'Some detailed attributes exceeded Home Assistant Recorder’s safe size. ' +
+        overflow.map((item) =>
+          this._esc(item.entityKey) + (item.preserved
+            ? ' — full details are preserved in the diagnostic report: ' + this._esc(item.report)
+            : ' — no report is available yet; run diagnostics to generate one.')
+        ).join('<br>') +
+        '</ha-alert>'
+      : '';
     const body = !this._hass
       ? '<p class="muted">Waiting for Home Assistant…</p>'
       : !state
@@ -272,7 +296,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       <ha-card>
         <header><h2>${this._esc(this._config.title)}</h2><span class="version">${CARD_VERSION}</span></header>
         ${this._tabs()}
-        <div class="content">${body}</div>
+        <div class="content">${overflowNotice}${body}</div>
       </ha-card>
     `;
     this.shadowRoot.querySelectorAll("button[data-tab]").forEach(button => {
