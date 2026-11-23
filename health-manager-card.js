@@ -61,7 +61,38 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         Object.assign(attributes, detail);
       }
     }
+    const pageEntities = Object.entries(this._hass?.states || {})
+      .filter(([entityId, state]) =>
+        entityId.includes("detail_page_") &&
+        state?.attributes?.collection_key &&
+        Array.isArray(state.attributes.records)
+      )
+      .sort((left, right) =>
+        String(left[1].attributes.collection_key).localeCompare(String(right[1].attributes.collection_key)) ||
+        Number(left[1].attributes.page || 0) - Number(right[1].attributes.page || 0)
+      );
+
+    for (const [, state] of pageEntities) {
+      const page = state.attributes;
+      const key = page.collection_key;
+      if (page.record_kind === "mapping") {
+        const merged = { ...(attributes[key] || {}) };
+        for (const record of page.records) {
+          if (record && Object.prototype.hasOwnProperty.call(record, "key")) {
+            merged[record.key] = record.value;
+          }
+        }
+        attributes[key] = merged;
+      } else {
+        attributes[key] = [
+          ...(Array.isArray(attributes[key]) ? attributes[key] : []),
+          ...page.records,
+        ];
+      }
+    }
+
     attributes.recorder_attribute_overflow_entities = overflowEntities;
+    attributes.recorder_detail_page_count = pageEntities.length;
     return attributes;
   }
 
