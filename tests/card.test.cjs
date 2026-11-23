@@ -177,7 +177,7 @@ test("merges focused detail sensors into the six card views", () => {
 
 test("shows a visible warning and report reference for Recorder-overflow details", () => {
   const card = createCard();
-  card.hass.states["sensor.diagnostic_details"].attributes = {
+  card._hass.states["sensor.diagnostic_details"].attributes = {
     recorder_attribute_overflow: true,
     overflowed_entity_key: "diagnostic_details",
     original_attribute_bytes: 24000,
