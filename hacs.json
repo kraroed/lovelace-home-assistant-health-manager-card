@@ -1,0 +1,5 @@
+{
+  "name": "Home Assistant Health Manager Card",
+  "content_in_root": true,
+  "filename": "health-manager-card.js"
+}
