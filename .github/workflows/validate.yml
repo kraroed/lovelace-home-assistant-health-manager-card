@@ -16,7 +16,9 @@ jobs:
           node-version: "20"
       - name: Check JavaScript syntax
         run: node --check health-manager-card.js
-      - name: Run card tests\n        run: node --test\n      - name: Validate HACS metadata JSON
+      - name: Run card tests
+        run: node --test
+      - name: Validate HACS metadata JSON
         run: python -m json.tool hacs.json > /dev/null
       - name: Validate HACS plugin
         uses: hacs/action@main
