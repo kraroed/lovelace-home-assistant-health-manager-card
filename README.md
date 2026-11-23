@@ -1,5 +1,7 @@
 # Home Assistant Health Manager Card
 
+![Home Assistant Health Manager Card preview](https://raw.githubusercontent.com/kraroed/lovelace-home-assistant-health-manager-card/main/images/health-manager-card-preview.svg)
+
 A standalone Lovelace card for the [Home Assistant Health Manager](https://github.com/kraroed/home-assistant-health-manager) integration.
 
 The card reads the integration's consolidated **Health Overview** sensor and presents its data in six responsive views:
