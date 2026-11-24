@@ -18,6 +18,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       title: "Home Assistant Health",
       entity: DEFAULT_ENTITY,
       history_entity: "sensor.unavailable_entity_history_events",
+      report_verification_entity: "sensor.report_verification",
       ...config,
     };
     this._render();
@@ -61,7 +62,8 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         Object.assign(attributes, detail);
       }
     }
-    const reportState = this._hass?.states?.["sensor.report_verification"];
+    const reportEntity = this._config?.report_verification_entity || "sensor.report_verification";
+    const reportState = this._hass?.states?.[reportEntity];
     if (reportState) {
       attributes.report_verification = {
         ...(reportState.attributes || {}),
