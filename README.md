@@ -53,19 +53,19 @@ history_entity: sensor.your_unavailable_entity_history_events
 
 ### Report verification sensor
 
-The Overview reads `sensor.report_verification` by default. If Home Assistant assigned a different entity ID or you renamed it, set `report_verification_entity`:
+The Overview reads `sensor.diagnostic_report_verification` by default. If Home Assistant assigned a different entity ID or you renamed it, set `report_verification_entity`:
 
 ```yaml
 type: custom:home-assistant-health-manager-card
 entity: sensor.health_overview
-report_verification_entity: sensor.your_report_verification
+report_verification_entity: sensor.your_diagnostic_report_verification
 ```
 
 ## Notes
 
 - All six views use the Health Overview sensor attributes, so the card does not need a separate entity configured for every metric.
 - The History view can show the retained event count without the optional history sensor; the event list requires that sensor.
-- When `sensor.report_verification` is available, the Overview displays its verification status and report-file metadata. Recorder overflow is described as preserved only when the integration reports a verified archive; existing but corrupt, unreadable, or incomplete files are clearly distinguished from missing files.
+- When `sensor.diagnostic_report_verification` is available, the Overview displays its verification status and report-file metadata. Recorder overflow is described as preserved only when the integration reports a verified archive; existing but corrupt, unreadable, or incomplete files are clearly distinguished from missing files.
 - If the report-verification sensor is unavailable, the card explicitly shows that verification is unavailable and does not infer preservation from a stored file path.
 - Grouping is an association lead based on available evidence, not confirmation of a shared root cause.
 - Investigation statuses such as **Expected** and **Resolved** are user-managed tracking labels. They do not change availability counts or entity classifications.
