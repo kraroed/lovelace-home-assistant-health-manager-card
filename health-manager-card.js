@@ -1,5 +1,5 @@
 /* Home Assistant Health Manager Lovelace card */
-const CARD_VERSION = "0.1.0-beta.1";
+const CARD_VERSION = "0.1.0-beta.2";
 const DEFAULT_ENTITY = "sensor.health_overview";
 
 class HomeAssistantHealthManagerCard extends HTMLElement {
@@ -61,6 +61,14 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         Object.assign(attributes, detail);
       }
     }
+    const reportState = this._hass?.states?.["sensor.report_verification"];
+    if (reportState) {
+      attributes.report_verification = {
+        ...(reportState.attributes || {}),
+        status: reportState.state || reportState.attributes?.status || "unknown",
+      };
+    }
+
     const pageEntities = Object.entries(this._hass?.states || {})
       .filter(([entityId, state]) =>
         entityId.includes("detail_page_") &&
@@ -150,6 +158,10 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     const status = String(state.state || "unknown").replaceAll("_", " ");
     const coverage = a.collection_coverage?.coverage_percent;
     const coverageText = coverage == null ? "—" : `${coverage}%`;
+    const report = a.report_verification || {};
+    const reportStatus = report.status || "not_available";
+    const reportExists = report.exists === true ? "Yes" : report.exists === false ? "No" : "Unknown";
+    const reportReadable = report.readable === true ? "Yes" : report.readable === false ? "No" : "Unknown";
     return `
       <div class="status-row"><span class="status-dot ${status === "healthy" ? "good" : "attention"}"></span><div><strong>${this._esc(status.toUpperCase())}</strong><div class="muted">Last assessment: ${this._date(a.last_assessment)}</div></div></div>
       <div class="metrics">
@@ -162,6 +174,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       </div>
       ${this._section("Platform updates", `<div class="item-list">${Object.entries(updates).map(([key, item]) => `<div class="item"><strong>${this._esc(key.replaceAll("_", " "))}</strong><span>${this._esc(item?.state || (item?.update_available ? "update available" : "not detected"))}</span></div>`).join("") || '<p class="muted">No update information.</p>'}</div>`)}
       ${this._section("Diagnostic summary", `<div class="item-list"><div class="item"><strong>Compatibility</strong><span>${this._esc(a.compatibility_assessment?.overall_status || "not assessed")}</span></div><div class="item"><strong>Diagnostic trend</strong><span>${this._esc(a.diagnostic_trend?.overall_direction || "insufficient data")}</span></div><div class="item"><strong>Generated reports</strong><span>${this._number(a.report_count)}</span></div></div>`)}
+      ${this._section("Diagnostic report verification", `<div class="item-list"><div class="item"><strong>Verification</strong><span>${this._esc(reportStatus.replaceAll("_", " "))}</span></div><div class="item"><strong>File exists</strong><span>${reportExists}</span></div><div class="item"><strong>Readable and complete</strong><span>${reportReadable}</span></div><div class="item"><strong>File size</strong><span>${report.size_bytes == null ? "—" : this._number(report.size_bytes) + " bytes"}</span></div><div class="item"><strong>Last modified</strong><span>${this._date(report.modified_at)}</span></div><div class="item"><strong>Report path</strong><span>${this._esc(report.path || "Not recorded")}</span></div></div>`, reportStatus === "verified" ? "The ZIP archive, required files, and diagnostic JSON were verified." : (report.error || "Report preservation is unconfirmed until verification succeeds."))}
     `;
   }
 
@@ -273,13 +286,18 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     const state = this._state();
     const attrs = this._attributes();
     const overflow = attrs.recorder_attribute_overflow_entities || [];
+    const verification = attrs.report_verification || {};
     const overflowNotice = overflow.length
       ? '<ha-alert alert-type="warning">' +
         'Some detailed attributes exceeded Home Assistant Recorder’s safe size. ' +
         overflow.map((item) =>
           this._esc(item.entityKey) + (item.preserved
-            ? ' — full details are preserved in the diagnostic report: ' + this._esc(item.report)
-            : ' — no report is available yet; run diagnostics to generate one.')
+            ? ' — full details are preserved in the verified diagnostic report: ' + this._esc(item.report)
+            : verification.exists === true
+              ? ' — a report file exists, but verification failed (' + this._esc(verification.status || "unknown") + '); preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
+              : verification.exists === false
+                ? ' — the recorded report file is missing; preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
+                : ' — report verification is unavailable; preservation is unconfirmed. ' + this._esc(item.report || "")
         ).join('<br>') +
         '</ha-alert>'
       : '';
@@ -319,7 +337,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         .status-dot{width:11px;height:11px;border-radius:50%;background:var(--warning-color)}
         .status-dot.good{background:var(--success-color)}
         .item-list{display:grid;gap:6px}
-        .item{display:flex;justify-content:space-between;gap:12px;padding:9px 10px;border-radius:8px;background:var(--secondary-background-color);align-items:start}
+        .item{display:flex;justify-content:space-between;gap:12px;padding:9px 10px;border-radius:8px;background:var(--secondary-background-color);align-items:start}.item span{overflow-wrap:anywhere;text-align:right;min-width:0}
         .record{border:1px solid var(--divider-color);border-radius:10px;padding:12px}
         .record-heading{display:flex;justify-content:space-between;gap:10px;align-items:center}
         .pill{border-radius:20px;background:var(--secondary-background-color);padding:4px 8px;font-size:.75rem;white-space:nowrap}
