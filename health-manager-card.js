@@ -1,5 +1,5 @@
 /* Home Assistant Health Manager Lovelace card */
-const CARD_VERSION = "0.1.0-beta.3";
+const CARD_VERSION = "0.1.0-beta.4";
 const DEFAULT_ENTITY = "sensor.health_overview";
 
 class HomeAssistantHealthManagerCard extends HTMLElement {
@@ -289,20 +289,39 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     const attrs = this._attributes();
     const overflow = attrs.recorder_attribute_overflow_entities || [];
     const verification = attrs.report_verification || {};
-    const overflowNotice = overflow.length
+    const overflowGroups = new Map();
+    for (const item of overflow) {
+      let message;
+      let reportPath = "";
+      if (item.preserved) {
+        message = "full details are preserved in the verified diagnostic report";
+        reportPath = item.report || "";
+      } else if (verification.exists === true) {
+        message = `a report file exists, but verification failed (${verification.status || "unknown"}); preservation is unconfirmed`;
+        reportPath = verification.path || item.report || "";
+      } else if (verification.status === "invalid_path") {
+        message = "the recorded report path is invalid; preservation is unconfirmed";
+      } else if (verification.status === "missing" || verification.exists === false) {
+        message = "the recorded report file is missing; preservation is unconfirmed";
+        reportPath = verification.path || item.report || "";
+      } else {
+        message = "report verification is unavailable; preservation is unconfirmed";
+        reportPath = item.report || "";
+      }
+      const key = JSON.stringify([message, reportPath]);
+      if (!overflowGroups.has(key)) {
+        overflowGroups.set(key, { message, reportPath, entities: new Set() });
+      }
+      overflowGroups.get(key).entities.add(item.entityKey);
+    }
+    const overflowNotice = overflowGroups.size
       ? '<ha-alert alert-type="warning">' +
         'Some detailed attributes exceeded Home Assistant Recorder’s safe size. ' +
-        overflow.map((item) =>
-          this._esc(item.entityKey) + (item.preserved
-            ? ' — full details are preserved in the verified diagnostic report: ' + this._esc(item.report)
-            : verification.exists === true
-              ? ' — a report file exists, but verification failed (' + this._esc(verification.status || "unknown") + '); preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
-              : verification.status === "invalid_path"
-                ? ' — the recorded report path is invalid; preservation is unconfirmed.'
-                : verification.status === "missing" || verification.exists === false
-                  ? ' — the recorded report file is missing; preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
-                  : ' — report verification is unavailable; preservation is unconfirmed. ' + this._esc(item.report || "")
-        )).join('<br>') +
+        [...overflowGroups.values()].map((group) =>
+          this._esc([...group.entities].join(", ")) + ' — ' +
+          this._esc(group.message) +
+          (group.reportPath ? ': ' + this._esc(group.reportPath) : "")
+        ).join('<br>') +
         '</ha-alert>'
       : '';
     const body = !this._hass
