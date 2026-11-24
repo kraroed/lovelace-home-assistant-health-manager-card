@@ -51,6 +51,16 @@ entity: sensor.health_overview
 history_entity: sensor.your_unavailable_entity_history_events
 ```
 
+### Report verification sensor
+
+The Overview reads `sensor.report_verification` by default. If Home Assistant assigned a different entity ID or you renamed it, set `report_verification_entity`:
+
+```yaml
+type: custom:home-assistant-health-manager-card
+entity: sensor.health_overview
+report_verification_entity: sensor.your_report_verification
+```
+
 ## Notes
 
 - All six views use the Health Overview sensor attributes, so the card does not need a separate entity configured for every metric.
