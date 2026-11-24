@@ -1,5 +1,5 @@
 /* Home Assistant Health Manager Lovelace card */
-const CARD_VERSION = "0.1.0-beta.2";
+const CARD_VERSION = "0.1.0-beta.3";
 const DEFAULT_ENTITY = "sensor.health_overview";
 
 class HomeAssistantHealthManagerCard extends HTMLElement {
@@ -18,7 +18,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       title: "Home Assistant Health",
       entity: DEFAULT_ENTITY,
       history_entity: "sensor.unavailable_entity_history_events",
-      report_verification_entity: "sensor.report_verification",
+      report_verification_entity: "sensor.diagnostic_report_verification",
       ...config,
     };
     this._render();
@@ -62,7 +62,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         Object.assign(attributes, detail);
       }
     }
-    const reportEntity = this._config?.report_verification_entity || "sensor.report_verification";
+    const reportEntity = this._config?.report_verification_entity || "sensor.diagnostic_report_verification";
     const reportState = this._hass?.states?.[reportEntity];
     if (reportState) {
       attributes.report_verification = {
