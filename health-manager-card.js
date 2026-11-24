@@ -300,7 +300,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
                 : verification.status === "missing" || verification.exists === false
                   ? ' — the recorded report file is missing; preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
                   : ' — report verification is unavailable; preservation is unconfirmed. ' + this._esc(item.report || "")
-        ).join('<br>') +
+        )).join('<br>') +
         '</ha-alert>'
       : '';
     const body = !this._hass
