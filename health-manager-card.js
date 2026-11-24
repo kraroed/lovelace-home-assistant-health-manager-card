@@ -295,9 +295,11 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
             ? ' — full details are preserved in the verified diagnostic report: ' + this._esc(item.report)
             : verification.exists === true
               ? ' — a report file exists, but verification failed (' + this._esc(verification.status || "unknown") + '); preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
-              : verification.exists === false
-                ? ' — the recorded report file is missing; preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
-                : ' — report verification is unavailable; preservation is unconfirmed. ' + this._esc(item.report || "")
+              : verification.status === "invalid_path"
+                ? ' — the recorded report path is invalid; preservation is unconfirmed.'
+                : verification.status === "missing" || verification.exists === false
+                  ? ' — the recorded report file is missing; preservation is unconfirmed. ' + this._esc(verification.path || item.report || "")
+                  : ' — report verification is unavailable; preservation is unconfirmed. ' + this._esc(item.report || "")
         ).join('<br>') +
         '</ha-alert>'
       : '';
