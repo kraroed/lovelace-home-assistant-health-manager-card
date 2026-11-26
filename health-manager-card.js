@@ -448,39 +448,39 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         this._render();
       });
     });
-    this.shadowRoot.querySelector("[data-classification-select-all]")?.addEventListener("click", () => {
+    this.shadowRoot.querySelector?.("[data-classification-select-all]")?.addEventListener("click", () => {
       for (const [entityId, state] of Object.entries(this._hass?.states || {})) {
         if (entityId.split(".", 1)[0] !== "button" && state?.state === "unknown") this._selectedUnknown.add(entityId);
       }
       this._classificationReview = false;
       this._render();
     });
-    this.shadowRoot.querySelector("[data-classification-clear]")?.addEventListener("click", () => {
+    this.shadowRoot.querySelector?.("[data-classification-clear]")?.addEventListener("click", () => {
       this._selectedUnknown.clear();
       this._classificationReview = false;
       this._render();
     });
-    this.shadowRoot.querySelector("[data-classification-choice]")?.addEventListener("change", event => {
+    this.shadowRoot.querySelector?.("[data-classification-choice]")?.addEventListener("change", event => {
       this._classificationChoice = event.target.value;
     });
-    this.shadowRoot.querySelector("[data-classification-reason]")?.addEventListener("input", event => {
+    this.shadowRoot.querySelector?.("[data-classification-reason]")?.addEventListener("input", event => {
       this._classificationReason = event.target.value;
-      const reviewButton = this.shadowRoot.querySelector("[data-classification-review]");
+      const reviewButton = this.shadowRoot.querySelector?.("[data-classification-review]");
       if (reviewButton) reviewButton.disabled = !this._selectedUnknown.size || !this._classificationReason.trim();
     });
-    this.shadowRoot.querySelector("[data-classification-review]")?.addEventListener("click", () => {
+    this.shadowRoot.querySelector?.("[data-classification-review]")?.addEventListener("click", () => {
       this._classificationReview = true;
       this._classificationStatus = "";
       this._render();
     });
-    this.shadowRoot.querySelector("[data-classification-edit]")?.addEventListener("click", () => {
+    this.shadowRoot.querySelector?.("[data-classification-edit]")?.addEventListener("click", () => {
       this._classificationReview = false;
       this._render();
     });
-    this.shadowRoot.querySelector("[data-classification-save]")?.addEventListener("click", async () => {
+    this.shadowRoot.querySelector?.("[data-classification-save]")?.addEventListener("click", async () => {
       const ids = [...this._selectedUnknown].filter(id => this._hass?.states?.[id]?.state === "unknown" && id.split(".", 1)[0] !== "button");
       if (!ids.length || !this._classificationReason.trim()) return;
-      const saveButton = this.shadowRoot.querySelector("[data-classification-save]");
+      const saveButton = this.shadowRoot.querySelector?.("[data-classification-save]");
       if (saveButton) saveButton.disabled = true;
       try {
         await this._hass.callService("home_assistant_health_manager", "set_entity_classification", {
