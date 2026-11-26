@@ -38,6 +38,52 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     return 7;
   }
 
+  _captureInteractionState() {
+    const scrollPositions = {};
+    const scrollables = this.shadowRoot.querySelectorAll(
+      "[data-preserve-scroll], nav, .classification-list, .item-list, .entity-list"
+    );
+    scrollables.forEach((element, index) => {
+      const key = element.dataset?.preserveScroll || `${element.className || element.tagName || "list"}:${index}`;
+      scrollPositions[key] = {
+        top: element.scrollTop || 0,
+        left: element.scrollLeft || 0,
+      };
+    });
+    const detailsOpen = [...this.shadowRoot.querySelectorAll("details")].map(
+      (element) => Boolean(element.open)
+    );
+    return {
+      scrollPositions,
+      detailsOpen,
+      windowX: window.scrollX || 0,
+      windowY: window.scrollY || 0,
+    };
+  }
+
+  _restoreInteractionState(snapshot) {
+    if (!snapshot) return;
+    const scrollables = this.shadowRoot.querySelectorAll(
+      "[data-preserve-scroll], nav, .classification-list, .item-list, .entity-list"
+    );
+    scrollables.forEach((element, index) => {
+      const key = element.dataset?.preserveScroll || `${element.className || element.tagName || "list"}:${index}`;
+      const position = snapshot.scrollPositions[key];
+      if (position) {
+        element.scrollTop = position.top;
+        element.scrollLeft = position.left;
+      }
+    });
+    this.shadowRoot.querySelectorAll("details").forEach((element, index) => {
+      if (index < snapshot.detailsOpen.length) {
+        element.open = snapshot.detailsOpen[index];
+      }
+    });
+    if (typeof window.scrollTo === "function") {
+      window.scrollTo(snapshot.windowX, snapshot.windowY);
+    }
+  }
+
   _state() {
     return this._hass?.states?.[this._config?.entity] || null;
   }
@@ -414,6 +460,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
           history: () => this._history(attrs),
         }[this._tab] || (() => this._overview(attrs, state)))();
 
+    const interactionState = this._captureInteractionState();
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family, sans-serif)}
@@ -467,6 +514,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         <div class="content">${overflowNotice}${body}</div>
       </ha-card>
     `;
+    this._restoreInteractionState(interactionState);
     this.shadowRoot.querySelectorAll("input[data-classification-entity]").forEach(input => {
       input.addEventListener("change", () => {
         if (input.checked) this._selectedUnknown.add(input.dataset.classificationEntity);
