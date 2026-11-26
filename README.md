@@ -13,13 +13,14 @@ The card reads the integration's consolidated **Health Overview** sensor and pre
 - **Investigations** — unavailable investigation records, status counts, evidence, notes, and affected entities.
 - **History** — recent availability events when the optional history sensor is configured.
 
-This is a display card. It does not automatically classify entities, suppress alerts, dismiss investigations, or change investigation statuses.
+The card includes an explicit entity-classification workflow in the **Unknown** view. Select currently unknown non-button entities, choose a classification, enter one shared reason, review the exact selection, and confirm a single bulk save. It does not automatically classify entities, suppress alerts, dismiss investigations, or change investigation statuses.
 
 ## Requirements
 
 - Home Assistant with Lovelace.
 - The Home Assistant Health Manager integration installed and configured.
 - The integration's Health Overview sensor available.
+- For bulk classification, an integration version that supports the `entity_ids` field on `set_entity_classification` (the companion integration change is tracked in [PR #17](https://github.com/kraroed/home-assistant-health-manager/pull/17)).
 
 ## Install with HACS
 
@@ -69,7 +70,8 @@ report_verification_entity: sensor.your_diagnostic_report_verification
 - If the report-verification sensor is unavailable, the card explicitly shows that verification is unavailable and does not infer preservation from a stored file path.
 - Grouping is an association lead based on available evidence, not confirmation of a shared root cause.
 - Investigation statuses such as **Expected** and **Resolved** are user-managed tracking labels. They do not change availability counts or entity classifications.
-- The card is read-only in this initial beta release.
+- Classification is limited to entities currently in the `unknown` state (excluding stateless `button` entities). The user must select entities, supply a non-empty reason, review the selection, and confirm. A bulk save is one integration service operation; it does not change entity states or remove raw unknown records.
+- Existing classifications can still be managed with the integration's native classification controls; this card panel focuses on classifying currently unknown entities.
 
 ## Development
 
