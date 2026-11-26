@@ -492,3 +492,48 @@ test("bulk save rechecks entity state and submits only entities still unknown", 
   assert.equal(card._selectedUnknown.size, 0);
   assert.match(card.shadowRoot.innerHTML, /Successfully saved classification for 1 entities/);
 });
+
+
+test("preserves scroll positions and expanded details across card redraws", () => {
+  const card = createCard();
+  const scrollables = [
+    { dataset: { preserveScroll: "tabs" }, className: "", scrollTop: 0, scrollLeft: 84, tagName: "NAV" },
+    { dataset: {}, className: "classification-list", scrollTop: 218, scrollLeft: 0, tagName: "DIV" },
+    { dataset: {}, className: "item-list", scrollTop: 42, scrollLeft: 0, tagName: "DIV" },
+    { dataset: {}, className: "entity-list", scrollTop: 17, scrollLeft: 0, tagName: "DIV" },
+  ];
+  const details = [{ open: true }, { open: false }, { open: true }];
+  card.shadowRoot.querySelectorAll = (selector) => {
+    if (selector.includes("data-preserve-scroll")) return scrollables;
+    if (selector === "details") return details;
+    return [];
+  };
+  const originalScrollTo = global.window.scrollTo;
+  const originalX = global.window.scrollX;
+  const originalY = global.window.scrollY;
+  let restoredWindowPosition = null;
+  global.window.scrollX = 12;
+  global.window.scrollY = 640;
+  global.window.scrollTo = (x, y) => { restoredWindowPosition = [x, y]; };
+
+  try {
+    const snapshot = card._captureInteractionState();
+    for (const element of scrollables) {
+      element.scrollTop = 0;
+      element.scrollLeft = 0;
+    }
+    for (const detail of details) detail.open = false;
+
+    card._restoreInteractionState(snapshot);
+
+    assert.deepEqual(scrollables.map(({ scrollTop, scrollLeft }) => [scrollTop, scrollLeft]), [
+      [0, 84], [218, 0], [42, 0], [17, 0],
+    ]);
+    assert.deepEqual(details.map(({ open }) => open), [true, false, true]);
+    assert.deepEqual(restoredWindowPosition, [12, 640]);
+  } finally {
+    global.window.scrollTo = originalScrollTo;
+    global.window.scrollX = originalX;
+    global.window.scrollY = originalY;
+  }
+});
