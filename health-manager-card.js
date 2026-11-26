@@ -211,11 +211,17 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     `;
   }
 
-  _classificationPanel() {
+  _classificationPanel(attributes = {}) {
     const unknown = Object.entries(this._hass?.states || {})
       .filter(([entityId, state]) => entityId.split(".", 1)[0] !== "button" && state?.state === "unknown")
       .sort((left, right) => left[0].localeCompare(right[0]));
-    const available = new Set(unknown.map(([entityId]) => entityId));
+    const savedClassifications = new Map(
+      (Array.isArray(attributes.entity_classification_records) ? attributes.entity_classification_records : [])
+        .filter(record => record && typeof record.entity_id === "string")
+        .map(record => [record.entity_id, record])
+    );
+    const unclassified = unknown.filter(([entityId]) => !savedClassifications.has(entityId));
+    const available = new Set(unclassified.map(([entityId]) => entityId));
     this._selectedUnknown = new Set([...this._selectedUnknown].filter(id => available.has(id)));
     const selected = [...this._selectedUnknown];
     const choices = [
@@ -226,7 +232,11 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     ];
     const entityRows = unknown.length ? unknown.map(([entityId, state]) => {
       const name = state.attributes?.friendly_name || entityId;
-      return `<label class="classification-entity"><input type="checkbox" data-classification-entity="${this._esc(entityId)}" ${this._selectedUnknown.has(entityId) ? "checked" : ""}><span><strong>${this._esc(name)}</strong><small>${this._esc(entityId)}</small></span></label>`;
+      const saved = savedClassifications.get(entityId);
+      const classificationText = saved
+        ? `Already classified: ${String(saved.classification || "saved").replaceAll("_", " ")} — ${saved.reason || "No reason recorded"}`
+        : "Not yet classified";
+      return `<label class="classification-entity"><input type="checkbox" data-classification-entity="${this._esc(entityId)}" ${saved ? "disabled" : ""} ${this._selectedUnknown.has(entityId) ? "checked" : ""}><span><strong>${this._esc(name)}</strong><small>${this._esc(entityId)}</small><small class="classification-existing ${saved ? "saved" : ""}">${this._esc(classificationText)}</small></span></label>`;
     }).join("") : '<p class="muted">No non-button entities are currently in the unknown state.</p>';
     const review = this._classificationReview ? `
       <div class="classification-review">
@@ -245,9 +255,9 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     return `
       <section class="classification-panel">
         <h3>Classify unknown entities</h3>
-        <p class="muted">Select one or more entities, choose a classification, and provide a reason. Nothing is saved until you confirm.</p>
+        <p class="muted">Select unclassified entities, choose a classification, and provide a reason. Existing classifications and reasons are shown below and are protected from bulk overwrite here. Nothing is saved until you confirm.</p>
         <div class="classification-list">
-          <div class="classification-list-heading"><strong>Currently unknown (${unknown.length})</strong><button data-classification-select-all>Select all</button><button data-classification-clear>Clear</button></div>
+          <div class="classification-list-heading"><strong>Unknown (${unknown.length}) · Unclassified (${unclassified.length})</strong><button data-classification-select-all>Select all unclassified</button><button data-classification-clear>Clear</button></div>
           ${entityRows}
         </div>
         ${review}
@@ -270,7 +280,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       ${this._section("Saved classification counts", `<div class="item-list">${Object.entries(counts).map(([key, value]) => `<div class="item"><strong>${this._esc(key.replaceAll("_", " "))}</strong><span>${this._number(value)}</span></div>`).join("") || '<p class="muted">No saved classification counts.</p>'}</div>`, "Raw unknown totals remain visible regardless of saved classifications.")}
       ${this._section("Unknown entities by domain", `<div class="item-list">${Object.entries(domains).sort((x,y) => Number(y[1])-Number(x[1])).map(([key, value]) => `<div class="item"><strong>${this._esc(key)}</strong><span>${this._number(value)}</span></div>`).join("") || '<p class="muted">No domain counts available.</p>'}</div>`)}
       ${this._section("Classification reviews due", this._list(due, item => `<article class="record"><strong>${this._esc(item.entity_id || item)}</strong><div class="muted">${this._esc(item.classification || "classification review")} · ${this._esc(item.reason || item.review_reason || "Review requested")}</div></article>`))}
-      ${this._classificationPanel()}
+      ${this._classificationPanel(a)}
     `;
   }
 
@@ -449,8 +459,13 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       });
     });
     this.shadowRoot.querySelector?.("[data-classification-select-all]")?.addEventListener("click", () => {
+      const savedIds = new Set(
+        (this._attributes().entity_classification_records || []).map(record => record.entity_id)
+      );
       for (const [entityId, state] of Object.entries(this._hass?.states || {})) {
-        if (entityId.split(".", 1)[0] !== "button" && state?.state === "unknown") this._selectedUnknown.add(entityId);
+        if (entityId.split(".", 1)[0] !== "button" && state?.state === "unknown" && !savedIds.has(entityId)) {
+          this._selectedUnknown.add(entityId);
+        }
       }
       this._classificationReview = false;
       this._render();
@@ -478,7 +493,14 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       this._render();
     });
     this.shadowRoot.querySelector?.("[data-classification-save]")?.addEventListener("click", async () => {
-      const ids = [...this._selectedUnknown].filter(id => this._hass?.states?.[id]?.state === "unknown" && id.split(".", 1)[0] !== "button");
+      const savedIds = new Set(
+        (this._attributes().entity_classification_records || []).map(record => record.entity_id)
+      );
+      const ids = [...this._selectedUnknown].filter(id =>
+        this._hass?.states?.[id]?.state === "unknown" &&
+        id.split(".", 1)[0] !== "button" &&
+        !savedIds.has(id)
+      );
       if (!ids.length || !this._classificationReason.trim()) return;
       const saveButton = this.shadowRoot.querySelector?.("[data-classification-save]");
       if (saveButton) saveButton.disabled = true;
