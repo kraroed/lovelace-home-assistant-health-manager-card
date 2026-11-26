@@ -256,3 +256,43 @@ test("renders a selectable list of unknown non-button entities for bulk classifi
   assert.match(card.shadowRoot.innerHTML, /data-classification-choice/);
   assert.match(card.shadowRoot.innerHTML, /data-classification-reason/);
 });
+
+
+test("protects existing classifications and reasons from the bulk selector", () => {
+  const card = createCard();
+  card._hass.states["sensor.already_expected"] = {
+    state: "unknown",
+    attributes: { friendly_name: "Already expected" },
+  };
+  card._hass.states["sensor.new_unknown"] = {
+    state: "unknown",
+    attributes: { friendly_name: "New unknown" },
+  };
+  card._hass.states["sensor.unknown_details"].attributes.entity_classification_records = [{
+    entity_id: "sensor.already_expected",
+    classification: "expected",
+    reason: "Only reports data while the appliance is running.",
+  }];
+  const attributes = card._attributes();
+  assert.deepEqual(card._unclassifiedUnknownIds(attributes), ["sensor.new_unknown"]);
+  card._tab = "unknown";
+  card._render();
+  assert.match(card.shadowRoot.innerHTML, /Already classified: expected/);
+  assert.match(card.shadowRoot.innerHTML, /Only reports data while the appliance is running\./);
+  assert.match(card.shadowRoot.innerHTML, /data-classification-entity="sensor.already_expected" disabled/);
+  assert.match(card.shadowRoot.innerHTML, /data-classification-entity="sensor.new_unknown"/);
+});
+
+test("selectable unknown helper excludes saved, non-unknown, and button entities", () => {
+  const card = createCard();
+  card._hass.states["sensor.saved"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.available"] = { state: "on", attributes: {} };
+  card._hass.states["button.stateless"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.new"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.unknown_details"].attributes.entity_classification_records = [{
+    entity_id: "sensor.saved",
+    classification: "seasonal",
+    reason: "Seasonal irrigation.",
+  }];
+  assert.deepEqual(card._unclassifiedUnknownIds(), ["sensor.new"]);
+});
