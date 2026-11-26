@@ -12,6 +12,7 @@ class FakeElement {
   }
   addEventListener(name, callback) { this.listeners[name] = callback; }
   async fire(name, event = {}) {
+    if (this.disabled) return;
     return this.listeners[name]?.({ target: this, ...event });
   }
 }
@@ -44,7 +45,16 @@ class FakeShadowRoot {
       ["[data-classification-edit]", /<button data-classification-edit/],
       ["[data-classification-save]", /<button data-classification-save/],
     ]) {
-      if (pattern.test(value)) this.elements.set(selector, new FakeElement());
+      if (pattern.test(value)) {
+        const element = new FakeElement();
+        if (selector === "[data-classification-review]") {
+          element.disabled = /<button data-classification-review[^>]*disabled/.test(value);
+        }
+        if (selector === "[data-classification-save]") {
+          element.disabled = /<button data-classification-save[^>]*disabled/.test(value);
+        }
+        this.elements.set(selector, element);
+      }
     }
   }
   get innerHTML() { return this._html; }
