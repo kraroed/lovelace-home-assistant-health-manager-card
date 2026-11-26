@@ -468,3 +468,27 @@ test("bulk selection supports deselecting entities and never saves an empty sele
   assert.equal(card._selectedUnknown.size, 0);
   assert.equal(calls.length, 0);
 });
+
+
+test("bulk save rechecks entity state and submits only entities still unknown", async () => {
+  const card = createCard();
+  card._hass.states["sensor.still_unknown"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.became_available"] = { state: "unknown", attributes: {} };
+  card._selectedUnknown.add("sensor.still_unknown");
+  card._selectedUnknown.add("sensor.became_available");
+  card._classificationReason = "Reviewed unknown entities.";
+  card._classificationReview = true;
+  card._tab = "unknown";
+
+  // Simulate Home Assistant updating one entity after selection/review.
+  card._hass.states["sensor.became_available"].state = "on";
+  const calls = [];
+  card._hass.callService = async (...args) => calls.push(args);
+  card._render();
+
+  await card.shadowRoot.querySelector("[data-classification-save]").fire("click");
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0][2].entity_ids, ["sensor.still_unknown"]);
+  assert.equal(card._selectedUnknown.size, 0);
+  assert.match(card.shadowRoot.innerHTML, /Successfully saved classification for 1 entities/);
+});
