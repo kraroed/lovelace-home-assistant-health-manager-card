@@ -393,6 +393,7 @@ test("bulk save excludes entities classified after selection", async () => {
   card._selectedUnknown.add("sensor.raced");
   card._classificationReason = "New reason";
   card._classificationReview = true;
+  card._tab = "unknown";
   card._hass.states["sensor.unknown_details"].attributes.entity_classification_records = [{
     entity_id: "sensor.raced", classification: "expected", reason: "Existing reason",
   }];
@@ -410,6 +411,7 @@ test("bulk save reports service failures without claiming success", async () => 
   card._selectedUnknown.add("sensor.failure");
   card._classificationReason = "Test failure path";
   card._classificationReview = true;
+  card._tab = "unknown";
   card._hass.callService = async () => { throw new Error("service unavailable"); };
   card._render();
   await card.shadowRoot.querySelector("[data-classification-save]").fire("click");
