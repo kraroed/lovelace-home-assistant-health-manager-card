@@ -437,12 +437,16 @@ test("bulk selection supports deselecting entities and never saves an empty sele
   await card.shadowRoot.querySelector("[data-classification-select-all]").fire("click");
   assert.deepEqual([...card._selectedUnknown].sort(), ["sensor.first", "sensor.second"]);
 
-  const first = card.shadowRoot.querySelector('[data-classification-entity="sensor.first"]');
+  const first = card.shadowRoot.entityInputs.find(
+    input => input.dataset.classificationEntity === "sensor.first"
+  );
   first.checked = false;
   await first.fire("change");
   assert.deepEqual([...card._selectedUnknown], ["sensor.second"]);
 
-  const second = card.shadowRoot.querySelector('[data-classification-entity="sensor.second"]');
+  const second = card.shadowRoot.entityInputs.find(
+    input => input.dataset.classificationEntity === "sensor.second"
+  );
   second.checked = false;
   await second.fire("change");
   assert.equal(card._selectedUnknown.size, 0);
