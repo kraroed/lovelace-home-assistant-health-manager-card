@@ -419,3 +419,38 @@ test("bulk save reports service failures without claiming success", async () => 
   assert.match(card.shadowRoot.innerHTML, /service unavailable/);
   assert.equal(card._classificationReview, true);
 });
+
+
+test("bulk selection supports deselecting entities and never saves an empty selection", async () => {
+  const card = createCard();
+  card._hass.states["sensor.saved"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.first"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.second"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.unknown_details"].attributes.entity_classification_records = [{
+    entity_id: "sensor.saved", classification: "seasonal", reason: "Already documented.",
+  }];
+  card._tab = "unknown";
+  const calls = [];
+  card._hass.callService = async (...args) => calls.push(args);
+  card._render();
+
+  await card.shadowRoot.querySelector("[data-classification-select-all]").fire("click");
+  assert.deepEqual([...card._selectedUnknown].sort(), ["sensor.first", "sensor.second"]);
+
+  const first = card.shadowRoot.querySelector('[data-classification-entity="sensor.first"]');
+  first.checked = false;
+  await first.fire("change");
+  assert.deepEqual([...card._selectedUnknown], ["sensor.second"]);
+
+  const second = card.shadowRoot.querySelector('[data-classification-entity="sensor.second"]');
+  second.checked = false;
+  await second.fire("change");
+  assert.equal(card._selectedUnknown.size, 0);
+  assert.equal(card.shadowRoot.querySelector("[data-classification-review]").disabled, true);
+
+  card._classificationReason = "Reason supplied";
+  card._render();
+  await card.shadowRoot.querySelector("[data-classification-clear]").fire("click");
+  assert.equal(card._selectedUnknown.size, 0);
+  assert.equal(calls.length, 0);
+});
