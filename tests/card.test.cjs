@@ -2,12 +2,63 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 let CardClass;
+class FakeElement {
+  constructor(dataset = {}) {
+    this.dataset = dataset;
+    this.listeners = {};
+    this.checked = false;
+    this.disabled = false;
+    this.value = "";
+  }
+  addEventListener(name, callback) { this.listeners[name] = callback; }
+  async fire(name, event = {}) {
+    return this.listeners[name]?.({ target: this, ...event });
+  }
+}
+
+class FakeShadowRoot {
+  constructor() {
+    this._html = "";
+    this.elements = new Map();
+    this.entityInputs = [];
+    this.tabButtons = [];
+  }
+  set innerHTML(value) {
+    this._html = value;
+    this.elements.clear();
+    this.entityInputs = [...value.matchAll(/<input type="checkbox" data-classification-entity="([^"]+)"([^>]*)>/g)]
+      .map(match => {
+        const element = new FakeElement({ classificationEntity: match[1] });
+        element.checked = / checked/.test(match[2]);
+        element.disabled = / disabled/.test(match[2]);
+        return element;
+      });
+    this.tabButtons = [...value.matchAll(/<button data-tab="([^"]+)"/g)]
+      .map(match => new FakeElement({ tab: match[1] }));
+    for (const [selector, pattern] of [
+      ["[data-classification-select-all]", /data-classification-select-all/],
+      ["[data-classification-clear]", /data-classification-clear/],
+      ["[data-classification-choice]", /<select data-classification-choice/],
+      ["[data-classification-reason]", /<textarea data-classification-reason/],
+      ["[data-classification-review]", /<button data-classification-review/],
+      ["[data-classification-edit]", /<button data-classification-edit/],
+      ["[data-classification-save]", /<button data-classification-save/],
+    ]) {
+      if (pattern.test(value)) this.elements.set(selector, new FakeElement());
+    }
+  }
+  get innerHTML() { return this._html; }
+  querySelectorAll(selector) {
+    if (selector === "input[data-classification-entity]") return this.entityInputs;
+    if (selector === "button[data-tab]") return this.tabButtons;
+    return [];
+  }
+  querySelector(selector) { return this.elements.get(selector) || null; }
+}
+
 global.HTMLElement = class {
   attachShadow() {
-    this.shadowRoot = {
-      innerHTML: "",
-      querySelectorAll: () => [],
-    };
+    this.shadowRoot = new FakeShadowRoot();
     return this.shadowRoot;
   }
 };
@@ -295,4 +346,74 @@ test("selectable unknown helper excludes saved, non-unknown, and button entities
     reason: "Seasonal irrigation.",
   }];
   assert.deepEqual(card._unclassifiedUnknownIds(), ["sensor.new"]);
+});
+
+
+test("bulk classification supports select, reason, review, and one service call", async () => {
+  const card = createCard();
+  card._hass.states["sensor.bulk_one"] = { state: "unknown", attributes: {} };
+  card._hass.states["sensor.bulk_two"] = { state: "unknown", attributes: {} };
+  card._hass.states["button.ignored"] = { state: "unknown", attributes: {} };
+  card._tab = "unknown";
+  const calls = [];
+  card._hass.callService = async (...args) => { calls.push(args); };
+  card._render();
+
+  await card.shadowRoot.querySelector("[data-classification-select-all]").fire("click");
+  assert.deepEqual([...card._selectedUnknown].sort(), ["sensor.bulk_one", "sensor.bulk_two"]);
+
+  const choice = card.shadowRoot.querySelector("[data-classification-choice]");
+  choice.value = "seasonal";
+  await choice.fire("change");
+
+  const reason = card.shadowRoot.querySelector("[data-classification-reason]");
+  reason.value = "Seasonal shutdown.";
+  await reason.fire("input");
+  await card.shadowRoot.querySelector("[data-classification-review]").fire("click");
+  assert.equal(card._classificationReview, true);
+  assert.match(card.shadowRoot.innerHTML, /sensor\.bulk_one/);
+  assert.match(card.shadowRoot.innerHTML, /Seasonal shutdown\./);
+
+  await card.shadowRoot.querySelector("[data-classification-save]").fire("click");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "home_assistant_health_manager");
+  assert.equal(calls[0][1], "set_entity_classification");
+  assert.deepEqual(calls[0][2], {
+    entity_ids: ["sensor.bulk_one", "sensor.bulk_two"],
+    classification: "seasonal",
+    reason: "Seasonal shutdown.",
+  });
+  assert.equal(card._selectedUnknown.size, 0);
+  assert.match(card.shadowRoot.innerHTML, /Successfully saved classification for 2 entities/);
+});
+
+test("bulk save excludes entities classified after selection", async () => {
+  const card = createCard();
+  card._hass.states["sensor.raced"] = { state: "unknown", attributes: {} };
+  card._selectedUnknown.add("sensor.raced");
+  card._classificationReason = "New reason";
+  card._classificationReview = true;
+  card._hass.states["sensor.unknown_details"].attributes.entity_classification_records = [{
+    entity_id: "sensor.raced", classification: "expected", reason: "Existing reason",
+  }];
+  const calls = [];
+  card._hass.callService = async (...args) => calls.push(args);
+  card._render();
+  await card.shadowRoot.querySelector("[data-classification-save]").fire("click");
+  assert.equal(calls.length, 0);
+  assert.equal(card._selectedUnknown.has("sensor.raced"), true);
+});
+
+test("bulk save reports service failures without claiming success", async () => {
+  const card = createCard();
+  card._hass.states["sensor.failure"] = { state: "unknown", attributes: {} };
+  card._selectedUnknown.add("sensor.failure");
+  card._classificationReason = "Test failure path";
+  card._classificationReview = true;
+  card._hass.callService = async () => { throw new Error("service unavailable"); };
+  card._render();
+  await card.shadowRoot.querySelector("[data-classification-save]").fire("click");
+  assert.match(card.shadowRoot.innerHTML, /Save failed; no success was reported/);
+  assert.match(card.shadowRoot.innerHTML, /service unavailable/);
+  assert.equal(card._classificationReview, true);
 });
