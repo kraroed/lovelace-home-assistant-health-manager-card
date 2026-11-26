@@ -482,25 +482,19 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       if (!ids.length || !this._classificationReason.trim()) return;
       const saveButton = this.shadowRoot.querySelector("[data-classification-save]");
       if (saveButton) saveButton.disabled = true;
-      const failures = [];
-      let saved = 0;
-      for (const entity_id of ids) {
-        try {
-          await this._hass.callService("home_assistant_health_manager", "set_entity_classification", {
-            entity_id,
-            classification: this._classificationChoice,
-            reason: this._classificationReason.trim(),
-          });
-          saved += 1;
-        } catch (error) {
-          failures.push(entity_id + ": " + (error?.message || "service call failed"));
-        }
+      try {
+        await this._hass.callService("home_assistant_health_manager", "set_entity_classification", {
+          entity_ids: ids,
+          classification: this._classificationChoice,
+          reason: this._classificationReason.trim(),
+        });
+        this._classificationStatus = `Successfully saved classification for ${ids.length} entities in one bulk operation. Home Assistant is updating the summary.`;
+        this._selectedUnknown.clear();
+        this._classificationReview = false;
+      } catch (error) {
+        this._classificationStatus = `Save failed; no success was reported. ${error?.message || "Check the Home Assistant service error and try again."}`;
+        this._classificationReview = true;
       }
-      this._classificationStatus = failures.length
-        ? `Saved ${saved} of ${ids.length}. Failed: ${failures.join("; ")}`
-        : `Successfully saved classification for ${saved} entities. Home Assistant is updating the summary.`;
-      this._selectedUnknown.clear();
-      this._classificationReview = false;
       this._render();
     });
     this.shadowRoot.querySelectorAll("button[data-tab]").forEach(button => {
