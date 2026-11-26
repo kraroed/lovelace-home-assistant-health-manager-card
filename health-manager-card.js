@@ -211,16 +211,33 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     `;
   }
 
-  _classificationPanel(attributes = {}) {
-    const unknown = Object.entries(this._hass?.states || {})
-      .filter(([entityId, state]) => entityId.split(".", 1)[0] !== "button" && state?.state === "unknown")
-      .sort((left, right) => left[0].localeCompare(right[0]));
-    const savedClassifications = new Map(
+  _savedClassificationMap(attributes = this._attributes()) {
+    return new Map(
       (Array.isArray(attributes.entity_classification_records) ? attributes.entity_classification_records : [])
         .filter(record => record && typeof record.entity_id === "string")
         .map(record => [record.entity_id, record])
     );
-    const unclassified = unknown.filter(([entityId]) => !savedClassifications.has(entityId));
+  }
+
+  _unclassifiedUnknownIds(attributes = this._attributes()) {
+    const saved = this._savedClassificationMap(attributes);
+    return Object.entries(this._hass?.states || {})
+      .filter(([entityId, state]) =>
+        entityId.split(".", 1)[0] !== "button" &&
+        state?.state === "unknown" &&
+        !saved.has(entityId)
+      )
+      .map(([entityId]) => entityId)
+      .sort();
+  }
+
+  _classificationPanel(attributes = {}) {
+    const unknown = Object.entries(this._hass?.states || {})
+      .filter(([entityId, state]) => entityId.split(".", 1)[0] !== "button" && state?.state === "unknown")
+      .sort((left, right) => left[0].localeCompare(right[0]));
+    const savedClassifications = this._savedClassificationMap(attributes);
+    const unclassifiedIds = new Set(this._unclassifiedUnknownIds(attributes));
+    const unclassified = unknown.filter(([entityId]) => unclassifiedIds.has(entityId));
     const available = new Set(unclassified.map(([entityId]) => entityId));
     this._selectedUnknown = new Set([...this._selectedUnknown].filter(id => available.has(id)));
     const selected = [...this._selectedUnknown];
@@ -459,13 +476,8 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       });
     });
     this.shadowRoot.querySelector?.("[data-classification-select-all]")?.addEventListener("click", () => {
-      const savedIds = new Set(
-        (this._attributes().entity_classification_records || []).map(record => record.entity_id)
-      );
-      for (const [entityId, state] of Object.entries(this._hass?.states || {})) {
-        if (entityId.split(".", 1)[0] !== "button" && state?.state === "unknown" && !savedIds.has(entityId)) {
-          this._selectedUnknown.add(entityId);
-        }
+      for (const entityId of this._unclassifiedUnknownIds()) {
+        this._selectedUnknown.add(entityId);
       }
       this._classificationReview = false;
       this._render();
@@ -493,14 +505,8 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       this._render();
     });
     this.shadowRoot.querySelector?.("[data-classification-save]")?.addEventListener("click", async () => {
-      const savedIds = new Set(
-        (this._attributes().entity_classification_records || []).map(record => record.entity_id)
-      );
-      const ids = [...this._selectedUnknown].filter(id =>
-        this._hass?.states?.[id]?.state === "unknown" &&
-        id.split(".", 1)[0] !== "button" &&
-        !savedIds.has(id)
-      );
+      const unclassifiedIds = new Set(this._unclassifiedUnknownIds());
+      const ids = [...this._selectedUnknown].filter(id => unclassifiedIds.has(id));
       if (!ids.length || !this._classificationReason.trim()) return;
       const saveButton = this.shadowRoot.querySelector?.("[data-classification-save]");
       if (saveButton) saveButton.disabled = true;
