@@ -230,3 +230,29 @@ test("reconstructs full detail collections from multiple size-aware page sensors
   assert.deepEqual(attrs.unknown_counts_by_domain, { sensor: 8, switch: 4 });
   assert.equal(attrs.recorder_detail_page_count, 3);
 });
+
+
+test("renders a selectable list of unknown non-button entities for bulk classification", () => {
+  const card = createCard();
+  card._hass.states["sensor.unknown_one"] = {
+    state: "unknown",
+    attributes: { friendly_name: "Unknown one" },
+  };
+  card._hass.states["switch.unknown_two"] = {
+    state: "unknown",
+    attributes: { friendly_name: "Unknown two" },
+  };
+  card._hass.states["button.stateless_action"] = {
+    state: "unknown",
+    attributes: { friendly_name: "Stateless action" },
+  };
+  card._tab = "unknown";
+  card._render();
+  assert.match(card.shadowRoot.innerHTML, /Classify unknown entities/);
+  assert.match(card.shadowRoot.innerHTML, /data-classification-entity="sensor\.unknown_one"/);
+  assert.match(card.shadowRoot.innerHTML, /data-classification-entity="switch\.unknown_two"/);
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /data-classification-entity="button\.stateless_action"/);
+  assert.match(card.shadowRoot.innerHTML, /data-classification-review/);
+  assert.match(card.shadowRoot.innerHTML, /data-classification-choice/);
+  assert.match(card.shadowRoot.innerHTML, /data-classification-reason/);
+});
