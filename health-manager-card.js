@@ -8,6 +8,11 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._tab = "overview";
     this._config = null;
+    this._selectedUnknown = new Set();
+    this._classificationChoice = "actionable";
+    this._classificationReason = "";
+    this._classificationReview = false;
+    this._classificationStatus = "";
   }
 
   setConfig(config) {
@@ -206,6 +211,77 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     `;
   }
 
+  _savedClassificationMap(attributes = this._attributes()) {
+    return new Map(
+      (Array.isArray(attributes.entity_classification_records) ? attributes.entity_classification_records : [])
+        .filter(record => record && typeof record.entity_id === "string")
+        .map(record => [record.entity_id, record])
+    );
+  }
+
+  _unclassifiedUnknownIds(attributes = this._attributes()) {
+    const saved = this._savedClassificationMap(attributes);
+    return Object.entries(this._hass?.states || {})
+      .filter(([entityId, state]) =>
+        entityId.split(".", 1)[0] !== "button" &&
+        state?.state === "unknown" &&
+        !saved.has(entityId)
+      )
+      .map(([entityId]) => entityId)
+      .sort();
+  }
+
+  _classificationPanel(attributes = {}) {
+    const unknown = Object.entries(this._hass?.states || {})
+      .filter(([entityId, state]) => entityId.split(".", 1)[0] !== "button" && state?.state === "unknown")
+      .sort((left, right) => left[0].localeCompare(right[0]));
+    const savedClassifications = this._savedClassificationMap(attributes);
+    const unclassifiedIds = new Set(this._unclassifiedUnknownIds(attributes));
+    const unclassified = unknown.filter(([entityId]) => unclassifiedIds.has(entityId));
+    const available = new Set(unclassified.map(([entityId]) => entityId));
+    this._selectedUnknown = new Set([...this._selectedUnknown].filter(id => available.has(id)));
+    const selected = [...this._selectedUnknown];
+    const choices = [
+      ["actionable", "Actionable — investigate"],
+      ["expected", "Expected — documented limitation"],
+      ["setup_in_progress", "Setup in progress"],
+      ["seasonal", "Seasonal — review when active"],
+    ];
+    const entityRows = unknown.length ? unknown.map(([entityId, state]) => {
+      const name = state.attributes?.friendly_name || entityId;
+      const saved = savedClassifications.get(entityId);
+      const classificationText = saved
+        ? `Already classified: ${String(saved.classification || "saved").replaceAll("_", " ")} — ${saved.reason || "No reason recorded"}`
+        : "Not yet classified";
+      return `<label class="classification-entity"><input type="checkbox" data-classification-entity="${this._esc(entityId)}" ${saved ? "disabled" : ""} ${this._selectedUnknown.has(entityId) ? "checked" : ""}><span><strong>${this._esc(name)}</strong><small>${this._esc(entityId)}</small><small class="classification-existing ${saved ? "saved" : ""}">${this._esc(classificationText)}</small></span></label>`;
+    }).join("") : '<p class="muted">No non-button entities are currently in the unknown state.</p>';
+    const review = this._classificationReview ? `
+      <div class="classification-review">
+        <strong>Review before saving</strong>
+        <p>${selected.length} entity/entities will be classified as <strong>${this._esc(this._classificationChoice.replaceAll("_", " "))}</strong>.</p>
+        <div class="entity-list">${selected.map(id => `<code>${this._esc(id)}</code>`).join("")}</div>
+        <p>${this._esc(this._classificationReason)}</p>
+        <button data-classification-save ${selected.length && this._classificationReason.trim() ? "" : "disabled"}>Confirm and save</button>
+        <button data-classification-edit>Edit selection</button>
+      </div>` : `
+      <div class="classification-controls">
+        <label>Classification<select data-classification-choice>${choices.map(([value,label]) => `<option value="${value}" ${this._classificationChoice === value ? "selected" : ""}>${this._esc(label)}</option>`).join("")}</select></label>
+        <label>Reason<textarea data-classification-reason rows="3" placeholder="Explain why these entities have this classification">${this._esc(this._classificationReason)}</textarea></label>
+        <button data-classification-review ${selected.length && this._classificationReason.trim() ? "" : "disabled"}>Review ${selected.length} selected</button>
+      </div>`;
+    return `
+      <section class="classification-panel">
+        <h3>Classify unknown entities</h3>
+        <p class="muted">Select unclassified entities, choose a classification, and provide a reason. Existing classifications and reasons are shown below and are protected from bulk overwrite here. Nothing is saved until you confirm.</p>
+        <div class="classification-list">
+          <div class="classification-list-heading"><strong>Unknown (${unknown.length}) · Unclassified (${unclassified.length})</strong><button data-classification-select-all>Select all unclassified</button><button data-classification-clear>Clear</button></div>
+          ${entityRows}
+        </div>
+        ${review}
+        ${this._classificationStatus ? `<p class="classification-status" role="status">${this._esc(this._classificationStatus)}</p>` : ""}
+      </section>`;
+  }
+
   _unknown(a) {
     const counts = a.entity_classification_counts || {};
     const domains = a.unknown_counts_by_domain || {};
@@ -221,6 +297,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       ${this._section("Saved classification counts", `<div class="item-list">${Object.entries(counts).map(([key, value]) => `<div class="item"><strong>${this._esc(key.replaceAll("_", " "))}</strong><span>${this._number(value)}</span></div>`).join("") || '<p class="muted">No saved classification counts.</p>'}</div>`, "Raw unknown totals remain visible regardless of saved classifications.")}
       ${this._section("Unknown entities by domain", `<div class="item-list">${Object.entries(domains).sort((x,y) => Number(y[1])-Number(x[1])).map(([key, value]) => `<div class="item"><strong>${this._esc(key)}</strong><span>${this._number(value)}</span></div>`).join("") || '<p class="muted">No domain counts available.</p>'}</div>`)}
       ${this._section("Classification reviews due", this._list(due, item => `<article class="record"><strong>${this._esc(item.entity_id || item)}</strong><div class="muted">${this._esc(item.classification || "classification review")} · ${this._esc(item.reason || item.review_reason || "Review requested")}</div></article>`))}
+      ${this._classificationPanel(a)}
     `;
   }
 
@@ -365,6 +442,20 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         .record-heading{display:flex;justify-content:space-between;gap:10px;align-items:center}
         .pill{border-radius:20px;background:var(--secondary-background-color);padding:4px 8px;font-size:.75rem;white-space:nowrap}
         .entity-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+        .classification-panel{border:1px solid var(--divider-color);border-radius:12px;padding:12px;margin-top:18px}
+        .classification-list{max-height:320px;overflow:auto;border:1px solid var(--divider-color);border-radius:8px;margin:10px 0}
+        .classification-list-heading{position:sticky;top:0;background:var(--card-background-color);padding:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .classification-entity{display:flex;gap:10px;align-items:flex-start;padding:10px;border-top:1px solid var(--divider-color);cursor:pointer}
+        .classification-entity input{width:20px;height:20px;flex:0 0 auto;margin-top:2px}
+        .classification-entity span{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+        .classification-entity small{color:var(--secondary-text-color);overflow-wrap:anywhere}
+        .classification-controls{display:grid;gap:12px}
+        .classification-controls label{display:grid;gap:6px;font-size:.9rem}
+        .classification-controls select,.classification-controls textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}
+        .classification-controls button,.classification-review button,.classification-list-heading button{min-height:40px}
+        .classification-review{border:1px solid var(--divider-color);border-radius:8px;padding:10px;margin-top:12px}
+        .classification-status{padding:8px;border-radius:8px;background:var(--secondary-background-color);overflow-wrap:anywhere}
+
         code{font-size:.78rem;overflow-wrap:anywhere;background:var(--secondary-background-color);padding:3px 5px;border-radius:4px}
         details{margin-top:9px} summary{cursor:pointer;color:var(--primary-color)}
         ul{padding-left:20px} li{margin:5px 0}
@@ -376,6 +467,64 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         <div class="content">${overflowNotice}${body}</div>
       </ha-card>
     `;
+    this.shadowRoot.querySelectorAll("input[data-classification-entity]").forEach(input => {
+      input.addEventListener("change", () => {
+        if (input.checked) this._selectedUnknown.add(input.dataset.classificationEntity);
+        else this._selectedUnknown.delete(input.dataset.classificationEntity);
+        this._classificationReview = false;
+        this._render();
+      });
+    });
+    this.shadowRoot.querySelector?.("[data-classification-select-all]")?.addEventListener("click", () => {
+      for (const entityId of this._unclassifiedUnknownIds()) {
+        this._selectedUnknown.add(entityId);
+      }
+      this._classificationReview = false;
+      this._render();
+    });
+    this.shadowRoot.querySelector?.("[data-classification-clear]")?.addEventListener("click", () => {
+      this._selectedUnknown.clear();
+      this._classificationReview = false;
+      this._render();
+    });
+    this.shadowRoot.querySelector?.("[data-classification-choice]")?.addEventListener("change", event => {
+      this._classificationChoice = event.target.value;
+    });
+    this.shadowRoot.querySelector?.("[data-classification-reason]")?.addEventListener("input", event => {
+      this._classificationReason = event.target.value;
+      const reviewButton = this.shadowRoot.querySelector?.("[data-classification-review]");
+      if (reviewButton) reviewButton.disabled = !this._selectedUnknown.size || !this._classificationReason.trim();
+    });
+    this.shadowRoot.querySelector?.("[data-classification-review]")?.addEventListener("click", () => {
+      this._classificationReview = true;
+      this._classificationStatus = "";
+      this._render();
+    });
+    this.shadowRoot.querySelector?.("[data-classification-edit]")?.addEventListener("click", () => {
+      this._classificationReview = false;
+      this._render();
+    });
+    this.shadowRoot.querySelector?.("[data-classification-save]")?.addEventListener("click", async () => {
+      const unclassifiedIds = new Set(this._unclassifiedUnknownIds());
+      const ids = [...this._selectedUnknown].filter(id => unclassifiedIds.has(id));
+      if (!ids.length || !this._classificationReason.trim()) return;
+      const saveButton = this.shadowRoot.querySelector?.("[data-classification-save]");
+      if (saveButton) saveButton.disabled = true;
+      try {
+        await this._hass.callService("home_assistant_health_manager", "set_entity_classification", {
+          entity_ids: ids,
+          classification: this._classificationChoice,
+          reason: this._classificationReason.trim(),
+        });
+        this._classificationStatus = `Successfully saved classification for ${ids.length} entities in one bulk operation. Home Assistant is updating the summary.`;
+        this._selectedUnknown.clear();
+        this._classificationReview = false;
+      } catch (error) {
+        this._classificationStatus = `Save failed; no success was reported. ${error?.message || "Check the Home Assistant service error and try again."}`;
+        this._classificationReview = true;
+      }
+      this._render();
+    });
     this.shadowRoot.querySelectorAll("button[data-tab]").forEach(button => {
       button.addEventListener("click", () => {
         this._tab = button.dataset.tab;
