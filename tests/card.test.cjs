@@ -402,7 +402,7 @@ test("bulk save excludes entities classified after selection", async () => {
   card._render();
   await card.shadowRoot.querySelector("[data-classification-save]").fire("click");
   assert.equal(calls.length, 0);
-  assert.equal(card._selectedUnknown.has("sensor.raced"), true);
+  assert.equal(card._selectedUnknown.has("sensor.raced"), false);
 });
 
 test("bulk save reports service failures without claiming success", async () => {
