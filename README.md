@@ -20,7 +20,7 @@ The card includes an explicit entity-classification workflow in the **Unknown** 
 - Home Assistant with Lovelace.
 - The Home Assistant Health Manager integration installed and configured.
 - The integration's Health Overview sensor available.
-- For bulk classification, install the matching **0.1.0-beta.14** releases of both the Home Assistant Health Manager integration and this card. The card's bulk workflow depends on the integration's `entity_ids` service support; do not install the beta.14 card with integration beta.13. The coordinated changes have been merged to both repositories, but the beta.14 tags/releases have not yet been published.
+- For bulk classification, use this card with the Home Assistant Health Manager integration. The card's bulk workflow depends on the integration's `entity_ids` service support; install compatible releases of both repositories. The integration's **0.1.0-beta.15** release includes the required classification helper fixes. This card's **0.1.0-beta.16** release adds scroll and expanded-section preservation across card redraws.
 
 ## Install with HACS
 
