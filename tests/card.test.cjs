@@ -642,6 +642,10 @@ test("coalesces repeated Home Assistant updates until nested scrolling settles",
 
   await new Promise(resolve => setTimeout(resolve, 230));
 
+  assert.equal(card.shadowRoot.scrollables.find(element => element.tagName === "NAV"), originalNav,
+    "a brief pause during momentum scrolling must not replace the visible DOM");
+  card.shadowRoot.dispatch("scrollend");
+
   assert.notEqual(card.shadowRoot.scrollables.find(element => element.tagName === "NAV"), originalNav);
   assert.match(card.shadowRoot.innerHTML, /HEALTHY/);
   assert.match(card.shadowRoot.innerHTML, />2</);
@@ -665,6 +669,9 @@ test("coalesces Home Assistant updates during page scrolling too", async () => {
 
   assert.equal(card.shadowRoot.innerHTML, originalHtml);
   await new Promise(resolve => setTimeout(resolve, 230));
+  assert.equal(card.shadowRoot.innerHTML, originalHtml,
+    "page scrolling also remains stable through short momentum pauses");
+  global.window.dispatch("scrollend");
   assert.notEqual(card.shadowRoot.innerHTML, originalHtml);
   assert.match(card.shadowRoot.innerHTML, />1</);
 });
@@ -679,6 +686,7 @@ test("removes the page scroll listener and pending timer when disconnected", () 
   card.disconnectedCallback();
 
   assert.equal(global.window.listeners.scroll, undefined);
+  assert.equal(global.window.listeners.scrollend, undefined);
   assert.equal(card._scrollEndTimer, null);
   assert.equal(card._isScrolling, false);
   assert.equal(card._pendingHassRender, false);
