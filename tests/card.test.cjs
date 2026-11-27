@@ -567,7 +567,7 @@ test("preserves navigation and list scroll through an actual classification redr
   assert.equal(newNav.scrollLeft, 84);
   assert.equal(newClassificationList.scrollTop, 218);
   assert.equal(newItemList.scrollTop, 42);
-  assert.deepEqual(restoredWindowPosition, [12, 640]);
+  assert.equal(restoredWindowPosition, null, "unchanged page coordinates must not trigger scrollTo");
   assert.equal(card._selectedUnknown.has("sensor.scroll_test"), true);
   global.window.scrollTo = originalScrollTo;
   global.window.scrollX = originalScrollX;
@@ -686,4 +686,37 @@ test("removes the page scroll listener and pending timer when disconnected", () 
   card.connectedCallback();
   assert.equal(typeof global.window.listeners.scroll, "function");
   card.disconnectedCallback();
+});
+
+
+test("avoids redundant page scroll restoration while a nested list is scrolling", () => {
+  const card = createCard();
+  const originalScrollTo = global.window.scrollTo;
+  const originalScrollX = global.window.scrollX;
+  const originalScrollY = global.window.scrollY;
+  let calls = 0;
+  global.window.scrollX = 12;
+  global.window.scrollY = 640;
+  global.window.scrollTo = () => { calls += 1; };
+
+  card._restoreInteractionState({
+    scrollPositions: {},
+    detailsOpen: [],
+    windowX: 12,
+    windowY: 640,
+  });
+
+  assert.equal(calls, 0, "unchanged page coordinates must not trigger scrollTo");
+  global.window.scrollTo = originalScrollTo;
+  global.window.scrollX = originalScrollX;
+  global.window.scrollY = originalScrollY;
+});
+
+test("uses isolated momentum scrolling and skips offscreen classification row rendering", () => {
+  const card = createCard();
+  card._tab = "unknown";
+  card._render();
+  assert.match(card.shadowRoot.innerHTML, /-webkit-overflow-scrolling:touch/);
+  assert.match(card.shadowRoot.innerHTML, /overscroll-behavior:contain/);
+  assert.match(card.shadowRoot.innerHTML, /content-visibility:auto/);
 });
