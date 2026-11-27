@@ -29,7 +29,24 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
       }, 180);
     };
     this.shadowRoot.addEventListener?.("scroll", this._handleScroll, true);
+    this._windowScrollListenerAttached = false;
+  }
+
+  connectedCallback() {
+    if (this._windowScrollListenerAttached) return;
     window.addEventListener?.("scroll", this._handleScroll, { capture: true, passive: true });
+    this._windowScrollListenerAttached = true;
+  }
+
+  disconnectedCallback() {
+    if (this._windowScrollListenerAttached) {
+      window.removeEventListener?.("scroll", this._handleScroll, true);
+      this._windowScrollListenerAttached = false;
+    }
+    if (this._scrollEndTimer !== null) clearTimeout(this._scrollEndTimer);
+    this._scrollEndTimer = null;
+    this._isScrolling = false;
+    this._pendingHassRender = false;
   }
 
   setConfig(config) {
