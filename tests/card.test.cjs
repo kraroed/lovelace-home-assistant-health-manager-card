@@ -106,6 +106,7 @@ global.customElements = {
 global.window = {
   listeners: {},
   addEventListener(name, callback) { this.listeners[name] = callback; },
+  removeEventListener(name, callback) { if (this.listeners[name] === callback) delete this.listeners[name]; },
   dispatch(name) { this.listeners[name]?.({ type: name }); },
 };
 require("../health-manager-card.js");
@@ -171,6 +172,7 @@ const attributes = {
 
 function createCard() {
   const card = new CardClass();
+  card.connectedCallback();
   card.setConfig({});
   card.hass = {
     states: {
@@ -665,4 +667,23 @@ test("coalesces Home Assistant updates during page scrolling too", async () => {
   await new Promise(resolve => setTimeout(resolve, 230));
   assert.notEqual(card.shadowRoot.innerHTML, originalHtml);
   assert.match(card.shadowRoot.innerHTML, />1</);
+});
+
+
+test("removes the page scroll listener and pending timer when disconnected", () => {
+  const card = createCard();
+  assert.equal(typeof global.window.listeners.scroll, "function");
+  card._handleScroll();
+  assert.notEqual(card._scrollEndTimer, null);
+
+  card.disconnectedCallback();
+
+  assert.equal(global.window.listeners.scroll, undefined);
+  assert.equal(card._scrollEndTimer, null);
+  assert.equal(card._isScrolling, false);
+  assert.equal(card._pendingHassRender, false);
+
+  card.connectedCallback();
+  assert.equal(typeof global.window.listeners.scroll, "function");
+  card.disconnectedCallback();
 });
