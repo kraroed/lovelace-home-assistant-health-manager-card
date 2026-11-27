@@ -521,6 +521,9 @@ test("preserves navigation and list scroll through an actual classification redr
   card._tab = "unknown";
   card._render();
 
+  const originalScrollTo = global.window.scrollTo;
+  const originalScrollX = global.window.scrollX;
+  const originalScrollY = global.window.scrollY;
   const oldNav = card.shadowRoot.scrollables.find((element) => element.tagName === "NAV");
   const oldClassificationList = card.shadowRoot.scrollables.find((element) => element.className === "classification-list");
   const oldItemList = card.shadowRoot.scrollables.find((element) => element.className === "item-list");
@@ -553,6 +556,9 @@ test("preserves navigation and list scroll through an actual classification redr
   assert.equal(newItemList.scrollTop, 42);
   assert.deepEqual(restoredWindowPosition, [12, 640]);
   assert.equal(card._selectedUnknown.has("sensor.scroll_test"), true);
+  global.window.scrollTo = originalScrollTo;
+  global.window.scrollX = originalScrollX;
+  global.window.scrollY = originalScrollY;
 });
 
 test("preserves entity-list scroll and expanded details through an actual tab redraw", async () => {
