@@ -80,8 +80,8 @@ class FakeShadowRoot {
   querySelectorAll(selector) {
     if (selector === "input[data-classification-entity]") return this.entityInputs;
     if (selector === "button[data-tab]") return this.tabButtons;
-    if (selector === "details") return this.details;
-    if (selector.includes("[data-preserve-scroll]")) return this.scrollables;
+    if (selector === "details") return this.details || [];
+    if (selector.includes("[data-preserve-scroll]")) return this.scrollables || [];
     return [];
   }
   querySelector(selector) { return this.elements.get(selector) || null; }
