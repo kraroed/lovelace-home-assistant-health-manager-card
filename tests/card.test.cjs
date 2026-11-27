@@ -567,7 +567,7 @@ test("preserves navigation and list scroll through an actual classification redr
   assert.equal(newNav.scrollLeft, 84);
   assert.equal(newClassificationList.scrollTop, 218);
   assert.equal(newItemList.scrollTop, 42);
-  assert.deepEqual(restoredWindowPosition, [12, 640]);
+  assert.equal(restoredWindowPosition, null, "unchanged page coordinates must not trigger scrollTo");
   assert.equal(card._selectedUnknown.has("sensor.scroll_test"), true);
   global.window.scrollTo = originalScrollTo;
   global.window.scrollX = originalScrollX;
