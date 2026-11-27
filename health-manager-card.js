@@ -13,6 +13,23 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     this._classificationReason = "";
     this._classificationReview = false;
     this._classificationStatus = "";
+    this._isScrolling = false;
+    this._pendingHassRender = false;
+    this._scrollEndTimer = null;
+    this._handleScroll = () => {
+      this._isScrolling = true;
+      if (this._scrollEndTimer !== null) clearTimeout(this._scrollEndTimer);
+      this._scrollEndTimer = setTimeout(() => {
+        this._scrollEndTimer = null;
+        this._isScrolling = false;
+        if (this._pendingHassRender) {
+          this._pendingHassRender = false;
+          this._render();
+        }
+      }, 180);
+    };
+    this.shadowRoot.addEventListener?.("scroll", this._handleScroll, true);
+    window.addEventListener?.("scroll", this._handleScroll, { capture: true, passive: true });
   }
 
   setConfig(config) {
@@ -31,6 +48,13 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    // Home Assistant can publish many state updates while a user is scrolling.
+    // Keep the current DOM alive until scrolling settles, then render the latest
+    // state once rather than repeatedly replacing the list under the user's finger.
+    if (this._isScrolling) {
+      this._pendingHassRender = true;
+      return;
+    }
     this._render();
   }
 
