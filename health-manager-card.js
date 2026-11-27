@@ -1,5 +1,5 @@
 /* Home Assistant Health Manager Lovelace card */
-const CARD_VERSION = "0.1.0-beta.4";
+const CARD_VERSION = "0.1.0-beta.16";
 const DEFAULT_ENTITY = "sensor.health_overview";
 
 class HomeAssistantHealthManagerCard extends HTMLElement {
