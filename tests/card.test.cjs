@@ -27,6 +27,25 @@ class FakeShadowRoot {
   set innerHTML(value) {
     this._html = value;
     this.elements.clear();
+    this.scrollables = [...value.matchAll(/<(nav|div)\\b([^>]*)>/g)]
+      .filter((match) => {
+        const className = match[2].match(/class="([^"]*)"/)?.[1] || "";
+        return match[1] === "nav" || /(?:^|\\s)(?:classification-list|item-list|entity-list)(?:\\s|$)/.test(className);
+      })
+      .map((match) => {
+        const attributes = match[2];
+        const className = attributes.match(/class="([^"]*)"/)?.[1] || "";
+        const preserveScroll = attributes.match(/data-preserve-scroll="([^"]*)"/)?.[1];
+        return {
+          tagName: match[1].toUpperCase(),
+          className,
+          dataset: preserveScroll ? { preserveScroll } : {},
+          scrollTop: 0,
+          scrollLeft: 0,
+        };
+      });
+    this.details = [...value.matchAll(/<details(\\s[^>]*)?>/g)]
+      .map((match) => ({ open: /\\bopen(?:\\s|$)/.test(match[1] || "") }));
     this.entityInputs = [...value.matchAll(/<input type="checkbox" data-classification-entity="([^"]+)"([^>]*)>/g)]
       .map(match => {
         const element = new FakeElement({ classificationEntity: match[1] });
@@ -61,6 +80,8 @@ class FakeShadowRoot {
   querySelectorAll(selector) {
     if (selector === "input[data-classification-entity]") return this.entityInputs;
     if (selector === "button[data-tab]") return this.tabButtons;
+    if (selector === "details") return this.details;
+    if (selector.includes("[data-preserve-scroll]")) return this.scrollables;
     return [];
   }
   querySelector(selector) { return this.elements.get(selector) || null; }
@@ -494,46 +515,77 @@ test("bulk save rechecks entity state and submits only entities still unknown", 
 });
 
 
-test("preserves scroll positions and expanded details across card redraws", () => {
+test("preserves navigation and list scroll through an actual classification redraw", async () => {
   const card = createCard();
-  const scrollables = [
-    { dataset: { preserveScroll: "tabs" }, className: "", scrollTop: 0, scrollLeft: 84, tagName: "NAV" },
-    { dataset: {}, className: "classification-list", scrollTop: 218, scrollLeft: 0, tagName: "DIV" },
-    { dataset: {}, className: "item-list", scrollTop: 42, scrollLeft: 0, tagName: "DIV" },
-    { dataset: {}, className: "entity-list", scrollTop: 17, scrollLeft: 0, tagName: "DIV" },
-  ];
-  const details = [{ open: true }, { open: false }, { open: true }];
-  card.shadowRoot.querySelectorAll = (selector) => {
-    if (selector.includes("data-preserve-scroll")) return scrollables;
-    if (selector === "details") return details;
-    return [];
-  };
-  const originalScrollTo = global.window.scrollTo;
-  const originalX = global.window.scrollX;
-  const originalY = global.window.scrollY;
-  let restoredWindowPosition = null;
+  card._hass.states["sensor.scroll_test"] = { state: "unknown", attributes: {} };
+  card._tab = "unknown";
+  card._render();
+
+  const oldNav = card.shadowRoot.scrollables.find((element) => element.tagName === "NAV");
+  const oldClassificationList = card.shadowRoot.scrollables.find((element) => element.className === "classification-list");
+  const oldItemList = card.shadowRoot.scrollables.find((element) => element.className === "item-list");
+  assert.ok(oldNav);
+  assert.ok(oldClassificationList);
+  assert.ok(oldItemList);
+
+  oldNav.scrollLeft = 84;
+  oldClassificationList.scrollTop = 218;
+  oldItemList.scrollTop = 42;
   global.window.scrollX = 12;
   global.window.scrollY = 640;
+  let restoredWindowPosition = null;
   global.window.scrollTo = (x, y) => { restoredWindowPosition = [x, y]; };
 
-  try {
-    const snapshot = card._captureInteractionState();
-    for (const element of scrollables) {
-      element.scrollTop = 0;
-      element.scrollLeft = 0;
-    }
-    for (const detail of details) detail.open = false;
+  const checkbox = card.shadowRoot.entityInputs.find(
+    (input) => input.dataset.classificationEntity === "sensor.scroll_test"
+  );
+  checkbox.checked = true;
+  await checkbox.fire("change");
 
-    card._restoreInteractionState(snapshot);
+  const newNav = card.shadowRoot.scrollables.find((element) => element.tagName === "NAV");
+  const newClassificationList = card.shadowRoot.scrollables.find((element) => element.className === "classification-list");
+  const newItemList = card.shadowRoot.scrollables.find((element) => element.className === "item-list");
+  assert.notEqual(newNav, oldNav, "the redraw must replace the navigation node");
+  assert.notEqual(newClassificationList, oldClassificationList, "the redraw must replace the classification list node");
+  assert.notEqual(newItemList, oldItemList, "the redraw must replace the summary list node");
+  assert.equal(newNav.scrollLeft, 84);
+  assert.equal(newClassificationList.scrollTop, 218);
+  assert.equal(newItemList.scrollTop, 42);
+  assert.deepEqual(restoredWindowPosition, [12, 640]);
+  assert.equal(card._selectedUnknown.has("sensor.scroll_test"), true);
+});
 
-    assert.deepEqual(scrollables.map(({ scrollTop, scrollLeft }) => [scrollTop, scrollLeft]), [
-      [0, 84], [218, 0], [42, 0], [17, 0],
-    ]);
-    assert.deepEqual(details.map(({ open }) => open), [true, false, true]);
-    assert.deepEqual(restoredWindowPosition, [12, 640]);
-  } finally {
-    global.window.scrollTo = originalScrollTo;
-    global.window.scrollX = originalX;
-    global.window.scrollY = originalY;
-  }
+test("preserves entity-list scroll and expanded details through an actual tab redraw", async () => {
+  const card = createCard();
+  card._tab = "unavailable";
+  card._render();
+
+  const oldNav = card.shadowRoot.scrollables.find((element) => element.tagName === "NAV");
+  const oldItemList = card.shadowRoot.scrollables.find((element) => element.className === "item-list");
+  const oldEntityList = card.shadowRoot.scrollables.find((element) => element.className === "entity-list");
+  const oldDetails = card.shadowRoot.details[0];
+  assert.ok(oldNav);
+  assert.ok(oldItemList);
+  assert.ok(oldEntityList);
+  assert.ok(oldDetails);
+
+  oldNav.scrollLeft = 51;
+  oldItemList.scrollTop = 63;
+  oldEntityList.scrollTop = 27;
+  oldDetails.open = true;
+
+  await card.shadowRoot.tabButtons.find((button) => button.dataset.tab === "unavailable").fire("click");
+
+  const newNav = card.shadowRoot.scrollables.find((element) => element.tagName === "NAV");
+  const newItemList = card.shadowRoot.scrollables.find((element) => element.className === "item-list");
+  const newEntityList = card.shadowRoot.scrollables.find((element) => element.className === "entity-list");
+  const newDetails = card.shadowRoot.details[0];
+  assert.notEqual(newNav, oldNav, "the redraw must replace the navigation node");
+  assert.notEqual(newItemList, oldItemList, "the redraw must replace the summary list node");
+  assert.notEqual(newEntityList, oldEntityList, "the redraw must replace the entity list node");
+  assert.notEqual(newDetails, oldDetails, "the redraw must replace the details node");
+  assert.equal(newNav.scrollLeft, 51);
+  assert.equal(newItemList.scrollTop, 63);
+  assert.equal(newEntityList.scrollTop, 27);
+  assert.equal(newDetails.open, true);
 });
