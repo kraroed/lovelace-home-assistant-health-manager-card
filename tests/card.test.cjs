@@ -718,5 +718,6 @@ test("uses isolated momentum scrolling and skips offscreen classification row re
   card._render();
   assert.match(card.shadowRoot.innerHTML, /-webkit-overflow-scrolling:touch/);
   assert.match(card.shadowRoot.innerHTML, /overscroll-behavior:contain/);
-  assert.match(card.shadowRoot.innerHTML, /content-visibility:auto/);
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /content-visibility:auto/);
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /contain:layout paint style/);
 });
