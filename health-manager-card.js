@@ -536,8 +536,7 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
         .pill{border-radius:20px;background:var(--secondary-background-color);padding:4px 8px;font-size:.75rem;white-space:nowrap}
         .entity-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
         .classification-panel{border:1px solid var(--divider-color);border-radius:12px;padding:12px;margin-top:18px}
-        .classification-list{max-height:320px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;contain:layout paint style;border:1px solid var(--divider-color);border-radius:8px;margin:10px 0}
-        .classification-entity{content-visibility:auto;contain-intrinsic-size:auto 58px}
+        .classification-list{max-height:320px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border:1px solid var(--divider-color);border-radius:8px;margin:10px 0}
         .classification-list-heading{position:sticky;top:0;background:var(--card-background-color);padding:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
         .classification-entity{display:flex;gap:10px;align-items:flex-start;padding:10px;border-top:1px solid var(--divider-color);cursor:pointer}
         .classification-entity input{width:20px;height:20px;flex:0 0 auto;margin-top:2px}
