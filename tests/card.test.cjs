@@ -23,6 +23,13 @@ class FakeShadowRoot {
     this.elements = new Map();
     this.entityInputs = [];
     this.tabButtons = [];
+    this.listeners = {};
+  }
+  addEventListener(name, callback) {
+    this.listeners[name] = callback;
+  }
+  dispatch(name) {
+    this.listeners[name]?.({ type: name });
   }
   set innerHTML(value) {
     this._html = value;
@@ -96,7 +103,11 @@ global.HTMLElement = class {
 global.customElements = {
   define(_name, value) { CardClass = value; },
 };
-global.window = {};
+global.window = {
+  listeners: {},
+  addEventListener(name, callback) { this.listeners[name] = callback; },
+  dispatch(name) { this.listeners[name]?.({ type: name }); },
+};
 require("../health-manager-card.js");
 
 const attributes = {
@@ -594,4 +605,64 @@ test("preserves entity-list scroll and expanded details through an actual tab re
   assert.equal(newItemList.scrollTop, 63);
   assert.equal(newEntityList.scrollTop, 27);
   assert.equal(newDetails.open, true);
+});
+
+
+test("coalesces repeated Home Assistant updates until nested scrolling settles", async () => {
+  const card = createCard();
+  const originalNav = card.shadowRoot.scrollables.find(element => element.tagName === "NAV");
+  const originalHtml = card.shadowRoot.innerHTML;
+
+  card.shadowRoot.dispatch("scroll");
+  card.hass = {
+    ...card._hass,
+    states: {
+      ...card._hass.states,
+      "sensor.health_overview": {
+        state: "healthy",
+        attributes: { ...attributes, active_issues: 3 },
+      },
+    },
+  };
+  card.hass = {
+    ...card._hass,
+    states: {
+      ...card._hass.states,
+      "sensor.health_overview": {
+        state: "healthy",
+        attributes: { ...attributes, active_issues: 2 },
+      },
+    },
+  };
+
+  assert.equal(card.shadowRoot.innerHTML, originalHtml, "the visible DOM must remain unchanged during scrolling");
+  assert.equal(card.shadowRoot.scrollables.find(element => element.tagName === "NAV"), originalNav);
+
+  await new Promise(resolve => setTimeout(resolve, 230));
+
+  assert.notEqual(card.shadowRoot.scrollables.find(element => element.tagName === "NAV"), originalNav);
+  assert.match(card.shadowRoot.innerHTML, /HEALTHY/);
+  assert.match(card.shadowRoot.innerHTML, />2</);
+});
+
+test("coalesces Home Assistant updates during page scrolling too", async () => {
+  const card = createCard();
+  const originalHtml = card.shadowRoot.innerHTML;
+  global.window.dispatch("scroll");
+
+  card.hass = {
+    ...card._hass,
+    states: {
+      ...card._hass.states,
+      "sensor.health_overview": {
+        state: "healthy",
+        attributes: { ...attributes, active_issues: 1 },
+      },
+    },
+  };
+
+  assert.equal(card.shadowRoot.innerHTML, originalHtml);
+  await new Promise(resolve => setTimeout(resolve, 230));
+  assert.notEqual(card.shadowRoot.innerHTML, originalHtml);
+  assert.match(card.shadowRoot.innerHTML, />1</);
 });
