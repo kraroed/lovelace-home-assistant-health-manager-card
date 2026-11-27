@@ -27,10 +27,10 @@ class FakeShadowRoot {
   set innerHTML(value) {
     this._html = value;
     this.elements.clear();
-    this.scrollables = [...value.matchAll(/<(nav|div)\\b([^>]*)>/g)]
+    this.scrollables = [...value.matchAll(/<(nav|div)\b([^>]*)>/g)]
       .filter((match) => {
         const className = match[2].match(/class="([^"]*)"/)?.[1] || "";
-        return match[1] === "nav" || /(?:^|\\s)(?:classification-list|item-list|entity-list)(?:\\s|$)/.test(className);
+        return match[1] === "nav" || /(?:^|\s)(?:classification-list|item-list|entity-list)(?:\s|$)/.test(className);
       })
       .map((match) => {
         const attributes = match[2];
@@ -44,8 +44,8 @@ class FakeShadowRoot {
           scrollLeft: 0,
         };
       });
-    this.details = [...value.matchAll(/<details(\\s[^>]*)?>/g)]
-      .map((match) => ({ open: /\\bopen(?:\\s|$)/.test(match[1] || "") }));
+    this.details = [...value.matchAll(/<details(\s[^>]*)?>/g)]
+      .map((match) => ({ open: /\bopen(?:\s|$)/.test(match[1] || "") }));
     this.entityInputs = [...value.matchAll(/<input type="checkbox" data-classification-entity="([^"]+)"([^>]*)>/g)]
       .map(match => {
         const element = new FakeElement({ classificationEntity: match[1] });
