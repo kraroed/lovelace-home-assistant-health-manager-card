@@ -16,31 +16,39 @@ class HomeAssistantHealthManagerCard extends HTMLElement {
     this._isScrolling = false;
     this._pendingHassRender = false;
     this._scrollEndTimer = null;
+    this._finishScrolling = () => {
+      if (this._scrollEndTimer !== null) clearTimeout(this._scrollEndTimer);
+      this._scrollEndTimer = null;
+      if (!this._isScrolling) return;
+      this._isScrolling = false;
+      if (this._pendingHassRender) {
+        this._pendingHassRender = false;
+        this._render();
+      }
+    };
     this._handleScroll = () => {
       this._isScrolling = true;
       if (this._scrollEndTimer !== null) clearTimeout(this._scrollEndTimer);
-      this._scrollEndTimer = setTimeout(() => {
-        this._scrollEndTimer = null;
-        this._isScrolling = false;
-        if (this._pendingHassRender) {
-          this._pendingHassRender = false;
-          this._render();
-        }
-      }, 180);
+      // Keep the DOM stable through iOS momentum-scroll pauses. The native
+      // scrollend event below flushes immediately when momentum truly ends.
+      this._scrollEndTimer = setTimeout(this._finishScrolling, 700);
     };
     this.shadowRoot.addEventListener?.("scroll", this._handleScroll, true);
+    this.shadowRoot.addEventListener?.("scrollend", this._finishScrolling, true);
     this._windowScrollListenerAttached = false;
   }
 
   connectedCallback() {
     if (this._windowScrollListenerAttached) return;
     window.addEventListener?.("scroll", this._handleScroll, { capture: true, passive: true });
+    window.addEventListener?.("scrollend", this._finishScrolling, { capture: true, passive: true });
     this._windowScrollListenerAttached = true;
   }
 
   disconnectedCallback() {
     if (this._windowScrollListenerAttached) {
       window.removeEventListener?.("scroll", this._handleScroll, true);
+      window.removeEventListener?.("scrollend", this._finishScrolling, true);
       this._windowScrollListenerAttached = false;
     }
     if (this._scrollEndTimer !== null) clearTimeout(this._scrollEndTimer);
